@@ -1,5 +1,7 @@
 # TalerBundle
 
+> **Note:** This package is under active development and is subject to frequent code changes.
+
 Symfony bundle for [GNU Taler](https://taler.net/) payment integration via [`mirrorps/taler-php`](https://packagist.org/packages/mirrorps/taler-php).
 
 ## Requirements
@@ -538,3 +540,10 @@ vendor/bin/phpunit
 ## License
 
 MIT
+
+## Funding
+
+This project is funded through [NGI TALER Fund](https://nlnet.nl/taler), a fund established by [NLnet](https://nlnet.nl) with financial support from the European Commission's [Next Generation Internet](https://ngi.eu) program. Learn more at the [NLnet project page](https://nlnet.nl/project/TalerPHP).
+
+[<img src="https://nlnet.nl/logo/banner.png" alt="NLnet foundation logo" width="20%" />](https://nlnet.nl)
+
