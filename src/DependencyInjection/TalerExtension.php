@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace MirrorPS\TalerBundle\DependencyInjection;
 
 use MirrorPS\TalerBundle\Factory\TalerClientFactory;
+use MirrorPS\TalerBundle\Service\ConfigService;
+use MirrorPS\TalerBundle\Service\ConfigServiceInterface;
+use MirrorPS\TalerBundle\Service\InstanceService;
+use MirrorPS\TalerBundle\Service\InstanceServiceInterface;
 use MirrorPS\TalerBundle\Service\OrderService;
 use MirrorPS\TalerBundle\Service\OrderServiceInterface;
 use MirrorPS\TalerBundle\Taler;
@@ -33,5 +37,17 @@ final class TalerExtension extends Extension
         ]);
         $container->setDefinition(OrderService::class, $orderServiceDefinition);
         $container->setAlias(OrderServiceInterface::class, OrderService::class);
+
+        $instanceServiceDefinition = new Definition(InstanceService::class, [
+            new Reference(Taler::class),
+        ]);
+        $container->setDefinition(InstanceService::class, $instanceServiceDefinition);
+        $container->setAlias(InstanceServiceInterface::class, InstanceService::class);
+
+        $configServiceDefinition = new Definition(ConfigService::class, [
+            new Reference(Taler::class),
+        ]);
+        $container->setDefinition(ConfigService::class, $configServiceDefinition);
+        $container->setAlias(ConfigServiceInterface::class, ConfigService::class);
     }
 }
