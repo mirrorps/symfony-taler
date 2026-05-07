@@ -13,9 +13,9 @@ Security-sensitive behavior is provided by the upstream SDK, including:
 
 This package is responsible for Symfony integration concerns, including:
 
-- mapping `taler` bundle configuration into SDK options (`base_url`, `token`, `username`, `password`, `instance`, `scope`)
-- constructing the HTTP client used by the SDK, including transport defaults (`timeout`, `connect_timeout`, HTTPS-only redirects)
-- registering Symfony services and aliases for `Taler`, `OrderServiceInterface`, `InstanceServiceInterface`, and `ConfigServiceInterface`
+- mapping `taler` bundle configuration into SDK options
+- constructing the HTTP client used by the SDK, including transport defaults
+- registering Symfony services and aliases 
 
 ## Reporting A Vulnerability
 
