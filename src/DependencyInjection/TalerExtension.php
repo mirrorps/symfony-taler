@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace MirrorPS\TalerBundle\DependencyInjection;
 
 use MirrorPS\TalerBundle\Factory\TalerClientFactory;
+use MirrorPS\TalerBundle\Service\BankAccountService;
+use MirrorPS\TalerBundle\Service\BankAccountServiceInterface;
 use MirrorPS\TalerBundle\Service\ConfigService;
 use MirrorPS\TalerBundle\Service\ConfigServiceInterface;
+use MirrorPS\TalerBundle\Service\DonauCharityService;
+use MirrorPS\TalerBundle\Service\DonauCharityServiceInterface;
 use MirrorPS\TalerBundle\Service\InstanceService;
 use MirrorPS\TalerBundle\Service\InstanceServiceInterface;
 use MirrorPS\TalerBundle\Service\OrderService;
@@ -38,6 +42,12 @@ final class TalerExtension extends Extension
         $container->setDefinition(OrderService::class, $orderServiceDefinition);
         $container->setAlias(OrderServiceInterface::class, OrderService::class);
 
+        $bankAccountServiceDefinition = new Definition(BankAccountService::class, [
+            new Reference(Taler::class),
+        ]);
+        $container->setDefinition(BankAccountService::class, $bankAccountServiceDefinition);
+        $container->setAlias(BankAccountServiceInterface::class, BankAccountService::class);
+
         $instanceServiceDefinition = new Definition(InstanceService::class, [
             new Reference(Taler::class),
         ]);
@@ -49,5 +59,11 @@ final class TalerExtension extends Extension
         ]);
         $container->setDefinition(ConfigService::class, $configServiceDefinition);
         $container->setAlias(ConfigServiceInterface::class, ConfigService::class);
+
+        $donauCharityServiceDefinition = new Definition(DonauCharityService::class, [
+            new Reference(Taler::class),
+        ]);
+        $container->setDefinition(DonauCharityService::class, $donauCharityServiceDefinition);
+        $container->setAlias(DonauCharityServiceInterface::class, DonauCharityService::class);
     }
 }

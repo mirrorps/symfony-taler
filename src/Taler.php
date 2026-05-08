@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MirrorPS\TalerBundle;
 
+use Taler\Api\BankAccounts\BankAccountClient;
 use Taler\Api\Config\ConfigClient;
+use Taler\Api\DonauCharity\DonauCharityClient;
 use Taler\Api\Instance\InstanceClient;
 use Taler\Api\Order\OrderClient;
 use Taler\Taler as TalerClient;
@@ -23,6 +25,11 @@ final class Taler
         return $this->client->order();
     }
 
+    public function bankAccounts(): BankAccountClient
+    {
+        return $this->client->bankAccount();
+    }
+
     public function instance(): InstanceClient
     {
         return $this->client->instance();
@@ -31,6 +38,11 @@ final class Taler
     public function config(): ConfigClient
     {
         return $this->client->configApi();
+    }
+
+    public function donauCharity(): DonauCharityClient
+    {
+        return $this->client->donauCharity();
     }
 
     public function getClient(): TalerClient

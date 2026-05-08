@@ -54,8 +54,10 @@ The bundle registers services that can be injected via autowiring.
 | Service           | Interface                  | Description                |
 |-------------------|----------------------------|----------------------------|
 | `OrderService`    | `OrderServiceInterface`    | Full order management      |
+| `BankAccountService` | `BankAccountServiceInterface` | Bank account management |
 | `InstanceService` | `InstanceServiceInterface` | Instance management        |
 | `ConfigService`   | `ConfigServiceInterface`   | Merchant config endpoint   |
+| `DonauCharityService` | `DonauCharityServiceInterface` | Donau charity linking |
 | `Taler`           | -                          | Low-level client wrapper   |
 
 ### OrderService
@@ -244,6 +246,99 @@ class MyController
         $orderService->forgetOrder($orderId, $forgetRequest);
 
         echo sprintf("Fields forgotten for order %s.\n", $orderId);
+    }
+}
+```
+
+### BankAccountService
+
+The `BankAccountServiceInterface` provides access to the Taler merchant Bank Accounts API.
+
+```php
+use MirrorPS\TalerBundle\Service\BankAccountServiceInterface;
+use Taler\Api\BankAccounts\Dto\AccountAddDetails;
+use Taler\Api\BankAccounts\Dto\AccountPatchDetails;
+use Taler\Api\BankAccounts\Dto\BasicAuthFacadeCredentials;
+use Taler\Api\BankAccounts\Dto\NoFacadeCredentials;
+```
+
+#### List Bank Accounts
+
+```php
+class MyController
+{
+    public function listBankAccounts(BankAccountServiceInterface $bankAccountService): void
+    {
+        $accounts = $bankAccountService->getAccounts();
+
+        foreach ($accounts->accounts as $account) {
+            echo sprintf("%s: %s\n", $account->h_wire, $account->payto_uri);
+        }
+    }
+}
+```
+
+#### Create a Bank Account
+
+```php
+class MyController
+{
+    public function createBankAccount(BankAccountServiceInterface $bankAccountService): void
+    {
+        $response = $bankAccountService->createAccount(new AccountAddDetails(
+            payto_uri: 'payto://iban/DE75512108001245126199?receiver-name=Sandbox',
+            credit_facade_url: 'https://bank.example.test/facade',
+            credit_facade_credentials: new BasicAuthFacadeCredentials(
+                username: 'facade-user',
+                password: 'facade-password',
+            ),
+        ));
+
+        echo sprintf("Created bank account: %s\n", $response->h_wire);
+    }
+}
+```
+
+#### Get a Bank Account
+
+```php
+class MyController
+{
+    public function showBankAccount(BankAccountServiceInterface $bankAccountService, string $hWire): void
+    {
+        $account = $bankAccountService->getAccount($hWire);
+
+        echo sprintf("%s: %s\n", $account->h_wire, $account->payto_uri);
+    }
+}
+```
+
+#### Update a Bank Account
+
+```php
+class MyController
+{
+    public function updateBankAccount(BankAccountServiceInterface $bankAccountService, string $hWire): void
+    {
+        $bankAccountService->updateAccount($hWire, new AccountPatchDetails(
+            credit_facade_credentials: new NoFacadeCredentials(),
+        ));
+
+        echo sprintf("Updated bank account: %s\n", $hWire);
+    }
+}
+```
+
+#### Delete a Bank Account
+
+```php
+class MyController
+{
+    public function deleteBankAccount(BankAccountServiceInterface $bankAccountService, string $hWire): void
+    {
+        $bankAccountService->deleteAccount($hWire);
+
+        echo sprintf("Deleted bank account: %s\n", $hWire);
     }
 }
 ```
@@ -477,6 +572,49 @@ class MyController
 }
 ```
 
+### DonauCharityService
+
+The `DonauCharityServiceInterface` provides access to Donau charity link management.
+
+```php
+use MirrorPS\TalerBundle\Service\DonauCharityServiceInterface;
+use Taler\Api\DonauCharity\Dto\PostDonauRequest;
+
+class MyController
+{
+    public function listDonauLinks(DonauCharityServiceInterface $donauService): void
+    {
+        $response = $donauService->getInstances();
+
+        foreach ($response->donau_instances as $instance) {
+            echo sprintf(
+                "#%d %s (%s)\n",
+                $instance->donau_instance_serial,
+                $instance->charity_name,
+                $instance->donau_url
+            );
+        }
+    }
+
+    public function addDonauLink(DonauCharityServiceInterface $donauService): void
+    {
+        $challenge = $donauService->createDonauCharity(new PostDonauRequest(
+            donau_url: 'https://donau.example.test',
+            charity_id: 42,
+        ));
+
+        if ($challenge !== null) {
+            echo "2FA challenge required.\n";
+        }
+    }
+
+    public function removeDonauLink(DonauCharityServiceInterface $donauService): void
+    {
+        $donauService->deleteDonauCharityBySerial(42);
+    }
+}
+```
+
 ### Async Support
 
 All methods support asynchronous execution by appending `Async` to the method name. Async methods return a promise that resolves to the same type as the synchronous variant.
@@ -519,11 +657,17 @@ class MyController
         // Access the OrderClient directly
         $orderClient = $taler->orders();
 
+        // Access the BankAccountClient directly
+        $bankAccountClient = $taler->bankAccounts();
+
         // Access the InstanceClient directly
         $instanceClient = $taler->instance();
 
         // Access the ConfigClient directly
         $configClient = $taler->config();
+
+        // Access the DonauCharityClient directly
+        $donauClient = $taler->donauCharity();
 
         // Or get the full taler-php client
         $client = $taler->getClient();
