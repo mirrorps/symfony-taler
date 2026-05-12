@@ -13,8 +13,16 @@ use MirrorPS\TalerBundle\Service\DonauCharityService;
 use MirrorPS\TalerBundle\Service\DonauCharityServiceInterface;
 use MirrorPS\TalerBundle\Service\InstanceService;
 use MirrorPS\TalerBundle\Service\InstanceServiceInterface;
+use MirrorPS\TalerBundle\Service\OtpDevicesService;
+use MirrorPS\TalerBundle\Service\OtpDevicesServiceInterface;
 use MirrorPS\TalerBundle\Service\OrderService;
 use MirrorPS\TalerBundle\Service\OrderServiceInterface;
+use MirrorPS\TalerBundle\Service\TemplatesService;
+use MirrorPS\TalerBundle\Service\TemplatesServiceInterface;
+use MirrorPS\TalerBundle\Service\TokenFamiliesService;
+use MirrorPS\TalerBundle\Service\TokenFamiliesServiceInterface;
+use MirrorPS\TalerBundle\Service\WalletService;
+use MirrorPS\TalerBundle\Service\WalletServiceInterface;
 use MirrorPS\TalerBundle\Taler;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -65,5 +73,29 @@ final class TalerExtension extends Extension
         ]);
         $container->setDefinition(DonauCharityService::class, $donauCharityServiceDefinition);
         $container->setAlias(DonauCharityServiceInterface::class, DonauCharityService::class);
+
+        $otpDevicesServiceDefinition = new Definition(OtpDevicesService::class, [
+            new Reference(Taler::class),
+        ]);
+        $container->setDefinition(OtpDevicesService::class, $otpDevicesServiceDefinition);
+        $container->setAlias(OtpDevicesServiceInterface::class, OtpDevicesService::class);
+
+        $templatesServiceDefinition = new Definition(TemplatesService::class, [
+            new Reference(Taler::class),
+        ]);
+        $container->setDefinition(TemplatesService::class, $templatesServiceDefinition);
+        $container->setAlias(TemplatesServiceInterface::class, TemplatesService::class);
+
+        $tokenFamiliesServiceDefinition = new Definition(TokenFamiliesService::class, [
+            new Reference(Taler::class),
+        ]);
+        $container->setDefinition(TokenFamiliesService::class, $tokenFamiliesServiceDefinition);
+        $container->setAlias(TokenFamiliesServiceInterface::class, TokenFamiliesService::class);
+
+        $walletServiceDefinition = new Definition(WalletService::class, [
+            new Reference(Taler::class),
+        ]);
+        $container->setDefinition(WalletService::class, $walletServiceDefinition);
+        $container->setAlias(WalletServiceInterface::class, WalletService::class);
     }
 }

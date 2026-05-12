@@ -8,7 +8,11 @@ use Taler\Api\BankAccounts\BankAccountClient;
 use Taler\Api\Config\ConfigClient;
 use Taler\Api\DonauCharity\DonauCharityClient;
 use Taler\Api\Instance\InstanceClient;
+use Taler\Api\OtpDevices\OtpDevicesClient;
 use Taler\Api\Order\OrderClient;
+use Taler\Api\Templates\TemplatesClient;
+use Taler\Api\TokenFamilies\TokenFamiliesClient;
+use Taler\Api\Wallet\WalletClient;
 use Taler\Taler as TalerClient;
 
 final class Taler
@@ -43,6 +47,26 @@ final class Taler
     public function donauCharity(): DonauCharityClient
     {
         return $this->client->donauCharity();
+    }
+
+    public function otpDevices(): OtpDevicesClient
+    {
+        return $this->client->otpDevices();
+    }
+
+    public function templates(): TemplatesClient
+    {
+        return $this->client->templates();
+    }
+
+    public function tokenFamilies(): TokenFamiliesClient
+    {
+        return $this->client->tokenFamilies();
+    }
+
+    public function wallet(): WalletClient
+    {
+        return $this->client->wallet();
     }
 
     public function getClient(): TalerClient

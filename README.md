@@ -58,6 +58,9 @@ The bundle registers services that can be injected via autowiring.
 | `InstanceService` | `InstanceServiceInterface` | Instance management        |
 | `ConfigService`   | `ConfigServiceInterface`   | Merchant config endpoint   |
 | `DonauCharityService` | `DonauCharityServiceInterface` | Donau charity linking |
+| `OtpDevicesService` | `OtpDevicesServiceInterface` | OTP devices (POS confirmation) |
+| `TemplatesService` | `TemplatesServiceInterface` | Order templates (contract presets) |
+| `TokenFamiliesService` | `TokenFamiliesServiceInterface` | Token families (discount / subscription) |
 | `Taler`           | -                          | Low-level client wrapper   |
 
 ### OrderService
@@ -615,6 +618,328 @@ class MyController
 }
 ```
 
+### OtpDevicesService
+
+The `OtpDevicesServiceInterface` wraps the Taler merchant OTP Devices API. Use it to register POS terminals or other devices that prove confirmation codes (TOTP) to the backend.
+
+#### List OTP devices
+
+```php
+use MirrorPS\TalerBundle\Service\OtpDevicesServiceInterface;
+
+class MyController
+{
+    public function listOtpDevices(OtpDevicesServiceInterface $otpDevices): void
+    {
+        $summary = $otpDevices->getOtpDevices();
+
+        foreach ($summary->otp_devices as $entry) {
+            echo sprintf("%s — %s\n", $entry->otp_device_id, $entry->device_description);
+        }
+    }
+}
+```
+
+#### Create an OTP device
+
+```php
+use MirrorPS\TalerBundle\Service\OtpDevicesServiceInterface;
+use Taler\Api\OtpDevices\Dto\OtpDeviceAddDetails;
+
+class MyController
+{
+    public function registerDevice(OtpDevicesServiceInterface $otpDevices): void
+    {
+        $details = new OtpDeviceAddDetails(
+            otp_device_id: 'pos-device-1',
+            otp_device_description: 'Checkout counter',
+            otp_key: 'JBSWY3DPEHPK3PXP',
+            otp_algorithm: 1,
+        );
+
+        $otpDevices->createOtpDevice($details);
+    }
+}
+```
+
+`otp_algorithm` may be integers `0`, `1`, `2` or strings `NONE`, `TOTP_WITHOUT_PRICE`, `TOTP_WITH_PRICE` (see GNU Taler merchant API documentation).
+
+#### Get one device
+
+```php
+use MirrorPS\TalerBundle\Service\OtpDevicesServiceInterface;
+use Taler\Api\OtpDevices\Dto\GetOtpDeviceRequest;
+
+class MyController
+{
+    public function showDevice(OtpDevicesServiceInterface $otpDevices, string $deviceId): void
+    {
+        $device = $otpDevices->getOtpDevice($deviceId);
+
+        echo sprintf("Description: %s\n", $device->device_description);
+    }
+
+    public function showDeviceWithQuery(OtpDevicesServiceInterface $otpDevices, string $deviceId): void
+    {
+        $request = new GetOtpDeviceRequest(
+            faketime: 1700000000
+        );
+
+        $device = $otpDevices->getOtpDevice($deviceId, $request);
+    }
+}
+```
+
+#### Update an OTP device
+
+```php
+use MirrorPS\TalerBundle\Service\OtpDevicesServiceInterface;
+use Taler\Api\OtpDevices\Dto\OtpDevicePatchDetails;
+
+class MyController
+{
+    public function relabelDevice(OtpDevicesServiceInterface $otpDevices, string $deviceId): void
+    {
+        $current = $otpDevices->getOtpDevice($deviceId);
+
+        $otpDevices->updateOtpDevice($deviceId, new OtpDevicePatchDetails(
+            otp_device_description: 'New checkout label',
+            otp_algorithm: $current->otp_algorithm,
+        ));
+    }
+}
+```
+
+If you change `otp_key` or other fields, include `otp_algorithm` the same way unless you set an explicit new value.
+
+#### Delete an OTP device
+
+```php
+use MirrorPS\TalerBundle\Service\OtpDevicesServiceInterface;
+
+class MyController
+{
+    public function removeDevice(OtpDevicesServiceInterface $otpDevices, string $deviceId): void
+    {
+        $otpDevices->deleteOtpDevice($deviceId);
+    }
+}
+```
+
+### TemplatesService
+
+The `TemplatesServiceInterface` wraps the Taler merchant Templates API. Templates define default contract fields (summary, amount, pay duration, and so on) for orders created from that template.
+
+#### List templates
+
+```php
+use MirrorPS\TalerBundle\Service\TemplatesServiceInterface;
+
+class MyController
+{
+    public function listTemplates(TemplatesServiceInterface $templates): void
+    {
+        $summary = $templates->getTemplates();
+
+        foreach ($summary->templates as $entry) {
+            echo sprintf("%s — %s\n", $entry->template_id, $entry->template_description);
+        }
+    }
+}
+```
+
+#### Get one template
+
+```php
+use MirrorPS\TalerBundle\Service\TemplatesServiceInterface;
+
+class MyController
+{
+    public function showTemplate(TemplatesServiceInterface $templates, string $templateId): void
+    {
+        $template = $templates->getTemplate($templateId);
+
+        echo sprintf("Description: %s\n", $template->template_description);
+    }
+}
+```
+
+#### Create a template
+
+```php
+use MirrorPS\TalerBundle\Service\TemplatesServiceInterface;
+use Taler\Api\Dto\RelativeTime;
+use Taler\Api\Templates\Dto\TemplateAddDetails;
+use Taler\Api\Templates\Dto\TemplateContractDetails;
+
+class MyController
+{
+    public function addTemplate(TemplatesServiceInterface $templates): void
+    {
+        $details = new TemplateAddDetails(
+            template_id: 'lunch-menu',
+            template_description: 'Lunch special',
+            template_contract: new TemplateContractDetails(
+                minimum_age: 0,
+                pay_duration: new RelativeTime(d_us: 3600000000),
+                summary: 'Daily lunch',
+                currency: 'EUR',
+                amount: 'EUR:8.50',
+            ),
+            otp_id: null,
+            editable_defaults: null,
+        );
+
+        $templates->createTemplate($details);
+    }
+}
+```
+
+#### Update a template
+
+```php
+use MirrorPS\TalerBundle\Service\TemplatesServiceInterface;
+use Taler\Api\Dto\RelativeTime;
+use Taler\Api\Templates\Dto\TemplateContractDetails;
+use Taler\Api\Templates\Dto\TemplatePatchDetails;
+
+class MyController
+{
+    public function patchTemplate(TemplatesServiceInterface $templates, string $templateId): void
+    {
+        $templates->updateTemplate($templateId, new TemplatePatchDetails(
+            template_description: 'Lunch special (updated)',
+            template_contract: new TemplateContractDetails(
+                minimum_age: 0,
+                pay_duration: new RelativeTime(d_us: 'forever'),
+                summary: 'Daily lunch',
+                currency: 'EUR',
+                amount: 'EUR:9.00',
+            ),
+        ));
+    }
+}
+```
+
+#### Delete a template
+
+```php
+use MirrorPS\TalerBundle\Service\TemplatesServiceInterface;
+
+class MyController
+{
+    public function removeTemplate(TemplatesServiceInterface $templates, string $templateId): void
+    {
+        $templates->deleteTemplate($templateId);
+    }
+}
+```
+
+### TokenFamiliesService
+
+The `TokenFamiliesServiceInterface` wraps the Taler merchant Token Families API. 
+
+#### List token families
+
+```php
+use MirrorPS\TalerBundle\Service\TokenFamiliesServiceInterface;
+
+class MyController
+{
+    public function listTokenFamilies(TokenFamiliesServiceInterface $tokenFamilies): void
+    {
+        $list = $tokenFamilies->getTokenFamilies();
+
+        foreach ($list->token_families as $entry) {
+            echo sprintf("%s — %s (%s)\n", $entry->slug, $entry->name, $entry->kind);
+        }
+    }
+}
+```
+
+#### Get one token family
+
+```php
+use MirrorPS\TalerBundle\Service\TokenFamiliesServiceInterface;
+
+class MyController
+{
+    public function showTokenFamily(TokenFamiliesServiceInterface $tokenFamilies, string $slug): void
+    {
+        $details = $tokenFamilies->getTokenFamily($slug);
+
+        echo sprintf("Issued: %d, used: %d\n", $details->issued, $details->used);
+    }
+}
+```
+
+#### Create a token family
+
+```php
+use MirrorPS\TalerBundle\Service\TokenFamiliesServiceInterface;
+use Taler\Api\Dto\RelativeTime;
+use Taler\Api\Dto\Timestamp;
+use Taler\Api\TokenFamilies\Dto\TokenFamilyCreateRequest;
+
+class MyController
+{
+    public function addTokenFamily(TokenFamiliesServiceInterface $tokenFamilies): void
+    {
+        $request = new TokenFamilyCreateRequest(
+            slug: 'summer-discount',
+            name: 'Summer sale',
+            description: 'Seasonal discount tokens',
+            valid_before: new Timestamp(t_s: 'never'),
+            // duration must be >= validity_granularity + start_offset; granularity must be a fixed step (1m, 1h, 1d, …).
+            duration: new RelativeTime(d_us: 3_600_000_000),
+            validity_granularity: new RelativeTime(d_us: 3_600_000_000),
+            start_offset: new RelativeTime(d_us: 0),
+            kind: 'discount',
+        );
+
+        $tokenFamilies->createTokenFamily($request);
+    }
+}
+```
+
+`kind` must be `discount` or `subscription`. Optional fields on `TokenFamilyCreateRequest` include `description_i18n`, `extra_data`, and `valid_after`.
+
+
+#### Update a token family
+
+```php
+use MirrorPS\TalerBundle\Service\TokenFamiliesServiceInterface;
+use Taler\Api\Dto\Timestamp;
+use Taler\Api\TokenFamilies\Dto\TokenFamilyUpdateRequest;
+
+class MyController
+{
+    public function patchTokenFamily(TokenFamiliesServiceInterface $tokenFamilies, string $slug): void
+    {
+        $tokenFamilies->updateTokenFamily($slug, new TokenFamilyUpdateRequest(
+            name: 'Summer sale (updated)',
+            description: 'Updated description',
+            valid_after: new Timestamp(t_s: 0),
+            valid_before: new Timestamp(t_s: 'never'),
+        ));
+    }
+}
+```
+
+#### Delete a token family
+
+```php
+use MirrorPS\TalerBundle\Service\TokenFamiliesServiceInterface;
+
+class MyController
+{
+    public function removeTokenFamily(TokenFamiliesServiceInterface $tokenFamilies, string $slug): void
+    {
+        $tokenFamilies->deleteTokenFamily($slug);
+    }
+}
+```
+
 ### Async Support
 
 All methods support asynchronous execution by appending `Async` to the method name. Async methods return a promise that resolves to the same type as the synchronous variant.
@@ -668,6 +993,15 @@ class MyController
 
         // Access the DonauCharityClient directly
         $donauClient = $taler->donauCharity();
+
+        // Access the OtpDevicesClient directly
+        $otpDevicesClient = $taler->otpDevices();
+
+        // Access the TemplatesClient directly
+        $templatesClient = $taler->templates();
+
+        // Access the TokenFamiliesClient directly
+        $tokenFamiliesClient = $taler->tokenFamilies();
 
         // Or get the full taler-php client
         $client = $taler->getClient();

@@ -10,7 +10,11 @@ use Taler\Api\BankAccounts\BankAccountClient;
 use Taler\Api\Config\ConfigClient;
 use Taler\Api\DonauCharity\DonauCharityClient;
 use Taler\Api\Instance\InstanceClient;
+use Taler\Api\OtpDevices\OtpDevicesClient;
 use Taler\Api\Order\OrderClient;
+use Taler\Api\Templates\TemplatesClient;
+use Taler\Api\TokenFamilies\TokenFamiliesClient;
+use Taler\Api\Wallet\WalletClient;
 use Taler\Taler as TalerClient;
 
 final class TalerTest extends TestCase
@@ -83,6 +87,62 @@ final class TalerTest extends TestCase
         $taler = new Taler($client);
 
         self::assertSame($donauCharityClient, $taler->donauCharity());
+    }
+
+    public function testOtpDevicesReturnsOtpDevicesClient(): void
+    {
+        $otpDevicesClient = $this->createMock(OtpDevicesClient::class);
+
+        $client = $this->createMock(TalerClient::class);
+        $client->expects(self::once())
+            ->method('otpDevices')
+            ->willReturn($otpDevicesClient);
+
+        $taler = new Taler($client);
+
+        self::assertSame($otpDevicesClient, $taler->otpDevices());
+    }
+
+    public function testTemplatesReturnsTemplatesClient(): void
+    {
+        $templatesClient = $this->createMock(TemplatesClient::class);
+
+        $client = $this->createMock(TalerClient::class);
+        $client->expects(self::once())
+            ->method('templates')
+            ->willReturn($templatesClient);
+
+        $taler = new Taler($client);
+
+        self::assertSame($templatesClient, $taler->templates());
+    }
+
+    public function testTokenFamiliesReturnsTokenFamiliesClient(): void
+    {
+        $tokenFamiliesClient = $this->createMock(TokenFamiliesClient::class);
+
+        $client = $this->createMock(TalerClient::class);
+        $client->expects(self::once())
+            ->method('tokenFamilies')
+            ->willReturn($tokenFamiliesClient);
+
+        $taler = new Taler($client);
+
+        self::assertSame($tokenFamiliesClient, $taler->tokenFamilies());
+    }
+
+    public function testWalletReturnsWalletClient(): void
+    {
+        $walletClient = $this->createMock(WalletClient::class);
+
+        $client = $this->createMock(TalerClient::class);
+        $client->expects(self::once())
+            ->method('wallet')
+            ->willReturn($walletClient);
+
+        $taler = new Taler($client);
+
+        self::assertSame($walletClient, $taler->wallet());
     }
 
     public function testGetClientReturnsFactory(): void
