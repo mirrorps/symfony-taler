@@ -21,8 +21,12 @@ use MirrorPS\TalerBundle\Service\TemplatesService;
 use MirrorPS\TalerBundle\Service\TemplatesServiceInterface;
 use MirrorPS\TalerBundle\Service\TokenFamiliesService;
 use MirrorPS\TalerBundle\Service\TokenFamiliesServiceInterface;
+use MirrorPS\TalerBundle\Service\TwoFactorAuthService;
+use MirrorPS\TalerBundle\Service\TwoFactorAuthServiceInterface;
 use MirrorPS\TalerBundle\Service\WalletService;
 use MirrorPS\TalerBundle\Service\WalletServiceInterface;
+use MirrorPS\TalerBundle\Service\WebhooksService;
+use MirrorPS\TalerBundle\Service\WebhooksServiceInterface;
 use MirrorPS\TalerBundle\Taler;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -97,5 +101,17 @@ final class TalerExtension extends Extension
         ]);
         $container->setDefinition(WalletService::class, $walletServiceDefinition);
         $container->setAlias(WalletServiceInterface::class, WalletService::class);
+
+        $twoFactorAuthServiceDefinition = new Definition(TwoFactorAuthService::class, [
+            new Reference(Taler::class),
+        ]);
+        $container->setDefinition(TwoFactorAuthService::class, $twoFactorAuthServiceDefinition);
+        $container->setAlias(TwoFactorAuthServiceInterface::class, TwoFactorAuthService::class);
+
+        $webhooksServiceDefinition = new Definition(WebhooksService::class, [
+            new Reference(Taler::class),
+        ]);
+        $container->setDefinition(WebhooksService::class, $webhooksServiceDefinition);
+        $container->setAlias(WebhooksServiceInterface::class, WebhooksService::class);
     }
 }

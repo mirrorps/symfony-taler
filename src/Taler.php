@@ -12,7 +12,9 @@ use Taler\Api\OtpDevices\OtpDevicesClient;
 use Taler\Api\Order\OrderClient;
 use Taler\Api\Templates\TemplatesClient;
 use Taler\Api\TokenFamilies\TokenFamiliesClient;
+use Taler\Api\TwoFactorAuth\TwoFactorAuthClient;
 use Taler\Api\Wallet\WalletClient;
+use Taler\Api\Webhooks\WebhooksClient;
 use Taler\Taler as TalerClient;
 
 final class Taler
@@ -67,6 +69,16 @@ final class Taler
     public function wallet(): WalletClient
     {
         return $this->client->wallet();
+    }
+
+    public function twoFactorAuth(): TwoFactorAuthClient
+    {
+        return $this->client->twoFactorAuth();
+    }
+
+    public function webhooks(): WebhooksClient
+    {
+        return $this->client->webhooks();
     }
 
     public function getClient(): TalerClient

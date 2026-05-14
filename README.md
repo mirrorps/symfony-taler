@@ -22,7 +22,7 @@ Add your Taler merchant backend credentials in `config/packages/taler.yaml`:
 ```yaml
 taler:
   base_url: 'https://backend.demo.taler.net/instances/sandbox'
-  token: 'secret-token:your-api-token'
+  token: 'Bearer secret-token:your-api-token'
 ```
 
 Or use credential-based authentication:
@@ -61,6 +61,8 @@ The bundle registers services that can be injected via autowiring.
 | `OtpDevicesService` | `OtpDevicesServiceInterface` | OTP devices (POS confirmation) |
 | `TemplatesService` | `TemplatesServiceInterface` | Order templates (contract presets) |
 | `TokenFamiliesService` | `TokenFamiliesServiceInterface` | Token families (discount / subscription) |
+| `TwoFactorAuthService` | `TwoFactorAuthServiceInterface` | TAN challenge request / confirm |
+| `WebhooksService` | `WebhooksServiceInterface` | Merchant webhooks (HTTP callbacks) |
 | `Taler`           | -                          | Low-level client wrapper   |
 
 ### OrderService
@@ -904,7 +906,6 @@ class MyController
 
 `kind` must be `discount` or `subscription`. Optional fields on `TokenFamilyCreateRequest` include `description_i18n`, `extra_data`, and `valid_after`.
 
-
 #### Update a token family
 
 ```php
@@ -940,6 +941,156 @@ class MyController
 }
 ```
 
+### WebhooksService
+
+The `WebhooksServiceInterface` wraps the Taler merchant **Webhooks** API (`private/webhooks`). Webhooks let the backend invoke your HTTP endpoint when events occur (for example `order.paid`).
+
+#### List webhooks
+
+```php
+use MirrorPS\TalerBundle\Service\WebhooksServiceInterface;
+use Taler\Api\Webhooks\Dto\WebhookSummaryResponse;
+
+class MyController
+{
+    public function listWebhooks(WebhooksServiceInterface $webhooks): void
+    {
+        $summary = $webhooks->getWebhooks();
+        if (!$summary instanceof WebhookSummaryResponse) {
+            return;
+        }
+
+        foreach ($summary->webhooks as $entry) {
+            echo sprintf("%s — %s\n", $entry->webhook_id, $entry->event_type);
+        }
+    }
+}
+```
+
+#### Get one webhook
+
+```php
+use MirrorPS\TalerBundle\Service\WebhooksServiceInterface;
+use Taler\Api\Webhooks\Dto\WebhookDetails;
+
+class MyController
+{
+    public function showWebhook(WebhooksServiceInterface $webhooks, string $webhookId): void
+    {
+        $details = $webhooks->getWebhook($webhookId);
+        if (!$details instanceof WebhookDetails) {
+            return;
+        }
+
+        echo sprintf("%s %s\n", $details->http_method, $details->url);
+    }
+}
+```
+
+#### Create a webhook
+
+```php
+use MirrorPS\TalerBundle\Service\WebhooksServiceInterface;
+use Taler\Api\Dto\Url;
+use Taler\Api\Webhooks\Dto\WebhookAddDetails;
+
+class MyController
+{
+    public function addWebhook(WebhooksServiceInterface $webhooks): void
+    {
+        $details = new WebhookAddDetails(
+            webhook_id: 'orders-paid',
+            event_type: 'order.paid',
+            url: Url::fromString('https://example.com/taler-webhook'),
+            http_method: 'POST',
+        );
+
+        $webhooks->createWebhook($details);
+    }
+}
+```
+
+#### Update a webhook
+
+```php
+use MirrorPS\TalerBundle\Service\WebhooksServiceInterface;
+use Taler\Api\Dto\Url;
+use Taler\Api\Webhooks\Dto\WebhookPatchDetails;
+
+class MyController
+{
+    public function patchWebhook(WebhooksServiceInterface $webhooks, string $webhookId): void
+    {
+        $webhooks->updateWebhook($webhookId, new WebhookPatchDetails(
+            event_type: 'order.paid',
+            url: Url::fromString('https://example.com/taler-webhook-v2'),
+            http_method: 'POST',
+        ));
+    }
+}
+```
+
+#### Delete a webhook
+
+```php
+use MirrorPS\TalerBundle\Service\WebhooksServiceInterface;
+
+class MyController
+{
+    public function removeWebhook(WebhooksServiceInterface $webhooks, string $webhookId): void
+    {
+        $webhooks->deleteWebhook($webhookId);
+    }
+}
+```
+
+### TwoFactorAuthService
+
+The `TwoFactorAuthServiceInterface` wraps the GNU Taler merchant **Two-Factor Authentication** API (TAN challenges). Use it after another API returns a `ChallengeResponse`.
+
+#### Request a TAN for a challenge
+
+```php
+use MirrorPS\TalerBundle\Service\TwoFactorAuthServiceInterface;
+
+class MyController
+{
+    public function requestTan(TwoFactorAuthServiceInterface $twoFa, string $instanceId, string $challengeId): void
+    {
+        $status = $twoFa->requestChallenge($instanceId, $challengeId);
+
+        echo sprintf(
+            "Solve before: %s, earliest retransmit: %s\n",
+            (string) $status->solve_expiration->t_s,
+            (string) $status->earliest_retransmission->t_s
+        );
+    }
+}
+```
+
+#### Confirm a challenge with the TAN
+
+```php
+use MirrorPS\TalerBundle\Service\TwoFactorAuthServiceInterface;
+use Taler\Api\TwoFactorAuth\Dto\MerchantChallengeSolveRequest;
+
+class MyController
+{
+    public function submitTan(
+        TwoFactorAuthServiceInterface $twoFa,
+        string $instanceId,
+        string $challengeId,
+        string $tan,
+    ): void {
+        $twoFa->confirmChallenge(
+            $instanceId,
+            $challengeId,
+            new MerchantChallengeSolveRequest(tan: $tan),
+        );
+    }
+}
+```
+
 ### Async Support
 
 All methods support asynchronous execution by appending `Async` to the method name. Async methods return a promise that resolves to the same type as the synchronous variant.
@@ -958,55 +1109,6 @@ $response = $orderService->createOrder($postOrderRequest);
 
 // Asynchronous
 $promise = $orderService->createOrderAsync($postOrderRequest);
-```
-
-```php
-// Synchronous
-$instances = $instanceService->getInstances();
-
-// Asynchronous
-$promise = $instanceService->getInstancesAsync();
-```
-
-### Direct Client Access
-
-For advanced use cases, you can access the underlying `taler-php` client directly:
-
-```php
-use MirrorPS\TalerBundle\Taler;
-
-class MyController
-{
-    public function advanced(Taler $taler): void
-    {
-        // Access the OrderClient directly
-        $orderClient = $taler->orders();
-
-        // Access the BankAccountClient directly
-        $bankAccountClient = $taler->bankAccounts();
-
-        // Access the InstanceClient directly
-        $instanceClient = $taler->instance();
-
-        // Access the ConfigClient directly
-        $configClient = $taler->config();
-
-        // Access the DonauCharityClient directly
-        $donauClient = $taler->donauCharity();
-
-        // Access the OtpDevicesClient directly
-        $otpDevicesClient = $taler->otpDevices();
-
-        // Access the TemplatesClient directly
-        $templatesClient = $taler->templates();
-
-        // Access the TokenFamiliesClient directly
-        $tokenFamiliesClient = $taler->tokenFamilies();
-
-        // Or get the full taler-php client
-        $client = $taler->getClient();
-    }
-}
 ```
 
 ## Testing

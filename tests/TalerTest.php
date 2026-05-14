@@ -14,7 +14,9 @@ use Taler\Api\OtpDevices\OtpDevicesClient;
 use Taler\Api\Order\OrderClient;
 use Taler\Api\Templates\TemplatesClient;
 use Taler\Api\TokenFamilies\TokenFamiliesClient;
+use Taler\Api\TwoFactorAuth\TwoFactorAuthClient;
 use Taler\Api\Wallet\WalletClient;
+use Taler\Api\Webhooks\WebhooksClient;
 use Taler\Taler as TalerClient;
 
 final class TalerTest extends TestCase
@@ -143,6 +145,34 @@ final class TalerTest extends TestCase
         $taler = new Taler($client);
 
         self::assertSame($walletClient, $taler->wallet());
+    }
+
+    public function testTwoFactorAuthReturnsTwoFactorAuthClient(): void
+    {
+        $twoFactorAuthClient = $this->createMock(TwoFactorAuthClient::class);
+
+        $client = $this->createMock(TalerClient::class);
+        $client->expects(self::once())
+            ->method('twoFactorAuth')
+            ->willReturn($twoFactorAuthClient);
+
+        $taler = new Taler($client);
+
+        self::assertSame($twoFactorAuthClient, $taler->twoFactorAuth());
+    }
+
+    public function testWebhooksReturnsWebhooksClient(): void
+    {
+        $webhooksClient = $this->createMock(WebhooksClient::class);
+
+        $client = $this->createMock(TalerClient::class);
+        $client->expects(self::once())
+            ->method('webhooks')
+            ->willReturn($webhooksClient);
+
+        $taler = new Taler($client);
+
+        self::assertSame($webhooksClient, $taler->webhooks());
     }
 
     public function testGetClientReturnsFactory(): void
