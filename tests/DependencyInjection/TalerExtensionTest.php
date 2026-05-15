@@ -28,6 +28,8 @@ use MirrorPS\TalerBundle\Service\WalletService;
 use MirrorPS\TalerBundle\Service\WalletServiceInterface;
 use MirrorPS\TalerBundle\Service\WebhooksService;
 use MirrorPS\TalerBundle\Service\WebhooksServiceInterface;
+use MirrorPS\TalerBundle\Service\WireTransfersService;
+use MirrorPS\TalerBundle\Service\WireTransfersServiceInterface;
 use MirrorPS\TalerBundle\Taler;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -73,6 +75,8 @@ final class TalerExtensionTest extends TestCase
         self::assertTrue($container->hasAlias(TwoFactorAuthServiceInterface::class));
         self::assertTrue($container->hasDefinition(WebhooksService::class));
         self::assertTrue($container->hasAlias(WebhooksServiceInterface::class));
+        self::assertTrue($container->hasDefinition(WireTransfersService::class));
+        self::assertTrue($container->hasAlias(WireTransfersServiceInterface::class));
     }
 
     public function testTalerServiceUsesFactory(): void

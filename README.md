@@ -55,6 +55,7 @@ The bundle registers services that can be injected via autowiring.
 |-------------------|----------------------------|----------------------------|
 | `OrderService`    | `OrderServiceInterface`    | Full order management      |
 | `BankAccountService` | `BankAccountServiceInterface` | Bank account management |
+| `WireTransfersService` | `WireTransfersServiceInterface` | Merchant wire transfers |
 | `InstanceService` | `InstanceServiceInterface` | Instance management        |
 | `ConfigService`   | `ConfigServiceInterface`   | Merchant config endpoint   |
 | `DonauCharityService` | `DonauCharityServiceInterface` | Donau charity linking |
@@ -344,6 +345,70 @@ class MyController
         $bankAccountService->deleteAccount($hWire);
 
         echo sprintf("Deleted bank account: %s\n", $hWire);
+    }
+}
+```
+
+### WireTransfersService
+
+The `WireTransfersServiceInterface` wraps the Taler merchant **Wire Transfers** API (`private/transfers`). Use it to list incoming wire transfers and delete transfer records by serial ID.
+
+#### List wire transfers
+
+```php
+use MirrorPS\TalerBundle\Service\WireTransfersServiceInterface;
+use Taler\Api\WireTransfers\Dto\GetTransfersRequest;
+
+class MyController
+{
+    public function listTransfers(WireTransfersServiceInterface $wireTransfers): void
+    {
+        $list = $wireTransfers->getTransfers();
+
+        foreach ($list->transfers as $transfer) {
+            echo sprintf(
+                "[%d] %s — %s (verified: %s)\n",
+                $transfer->transfer_serial_id,
+                $transfer->wtid,
+                $transfer->credit_amount,
+                $transfer->verified === true ? 'yes' : 'no',
+            );
+        }
+    }
+}
+```
+
+#### List wire transfers with filters
+
+```php
+use MirrorPS\TalerBundle\Service\WireTransfersServiceInterface;
+use Taler\Api\WireTransfers\Dto\GetTransfersRequest;
+
+class MyController
+{
+    public function listFilteredTransfers(WireTransfersServiceInterface $wireTransfers): void
+    {
+        $request = new GetTransfersRequest(
+            payto_uri: 'payto://iban/DE89370400440532013000?receiver-name=Example%20Merchant',
+            after: '1700000000',
+            limit: 20,
+        );
+
+        $list = $wireTransfers->getTransfers($request);
+    }
+}
+```
+
+#### Delete a wire transfer
+
+```php
+use MirrorPS\TalerBundle\Service\WireTransfersServiceInterface;
+
+class MyController
+{
+    public function removeTransfer(WireTransfersServiceInterface $wireTransfers, string $tid): void
+    {
+        $wireTransfers->deleteTransfer($tid);
     }
 }
 ```

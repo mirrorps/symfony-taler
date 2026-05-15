@@ -17,6 +17,7 @@ use Taler\Api\TokenFamilies\TokenFamiliesClient;
 use Taler\Api\TwoFactorAuth\TwoFactorAuthClient;
 use Taler\Api\Wallet\WalletClient;
 use Taler\Api\Webhooks\WebhooksClient;
+use Taler\Api\WireTransfers\WireTransfersClient;
 use Taler\Taler as TalerClient;
 
 final class TalerTest extends TestCase
@@ -173,6 +174,20 @@ final class TalerTest extends TestCase
         $taler = new Taler($client);
 
         self::assertSame($webhooksClient, $taler->webhooks());
+    }
+
+    public function testWireTransfersReturnsWireTransfersClient(): void
+    {
+        $wireTransfersClient = $this->createMock(WireTransfersClient::class);
+
+        $client = $this->createMock(TalerClient::class);
+        $client->expects(self::once())
+            ->method('wireTransfers')
+            ->willReturn($wireTransfersClient);
+
+        $taler = new Taler($client);
+
+        self::assertSame($wireTransfersClient, $taler->wireTransfers());
     }
 
     public function testGetClientReturnsFactory(): void

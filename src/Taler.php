@@ -15,6 +15,7 @@ use Taler\Api\TokenFamilies\TokenFamiliesClient;
 use Taler\Api\TwoFactorAuth\TwoFactorAuthClient;
 use Taler\Api\Wallet\WalletClient;
 use Taler\Api\Webhooks\WebhooksClient;
+use Taler\Api\WireTransfers\WireTransfersClient;
 use Taler\Taler as TalerClient;
 
 final class Taler
@@ -79,6 +80,11 @@ final class Taler
     public function webhooks(): WebhooksClient
     {
         return $this->client->webhooks();
+    }
+
+    public function wireTransfers(): WireTransfersClient
+    {
+        return $this->client->wireTransfers();
     }
 
     public function getClient(): TalerClient

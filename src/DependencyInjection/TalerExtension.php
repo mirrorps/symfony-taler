@@ -27,6 +27,8 @@ use MirrorPS\TalerBundle\Service\WalletService;
 use MirrorPS\TalerBundle\Service\WalletServiceInterface;
 use MirrorPS\TalerBundle\Service\WebhooksService;
 use MirrorPS\TalerBundle\Service\WebhooksServiceInterface;
+use MirrorPS\TalerBundle\Service\WireTransfersService;
+use MirrorPS\TalerBundle\Service\WireTransfersServiceInterface;
 use MirrorPS\TalerBundle\Taler;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -113,5 +115,11 @@ final class TalerExtension extends Extension
         ]);
         $container->setDefinition(WebhooksService::class, $webhooksServiceDefinition);
         $container->setAlias(WebhooksServiceInterface::class, WebhooksService::class);
+
+        $wireTransfersServiceDefinition = new Definition(WireTransfersService::class, [
+            new Reference(Taler::class),
+        ]);
+        $container->setDefinition(WireTransfersService::class, $wireTransfersServiceDefinition);
+        $container->setAlias(WireTransfersServiceInterface::class, WireTransfersService::class);
     }
 }
