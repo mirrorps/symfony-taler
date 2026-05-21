@@ -9,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 use Taler\Api\BankAccounts\BankAccountClient;
 use Taler\Api\Config\ConfigClient;
 use Taler\Api\DonauCharity\DonauCharityClient;
+use Taler\Api\Inventory\InventoryClient;
 use Taler\Api\Instance\InstanceClient;
 use Taler\Api\OtpDevices\OtpDevicesClient;
 use Taler\Api\Order\OrderClient;
@@ -48,6 +49,20 @@ final class TalerTest extends TestCase
         $taler = new Taler($client);
 
         self::assertSame($bankAccountClient, $taler->bankAccounts());
+    }
+
+    public function testInventoryReturnsInventoryClient(): void
+    {
+        $inventoryClient = $this->createMock(InventoryClient::class);
+
+        $client = $this->createMock(TalerClient::class);
+        $client->expects(self::once())
+            ->method('inventory')
+            ->willReturn($inventoryClient);
+
+        $taler = new Taler($client);
+
+        self::assertSame($inventoryClient, $taler->inventory());
     }
 
     public function testInstanceReturnsInstanceClient(): void

@@ -13,6 +13,8 @@ use MirrorPS\TalerBundle\Service\DonauCharityService;
 use MirrorPS\TalerBundle\Service\DonauCharityServiceInterface;
 use MirrorPS\TalerBundle\Service\InstanceService;
 use MirrorPS\TalerBundle\Service\InstanceServiceInterface;
+use MirrorPS\TalerBundle\Service\InventoryService;
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
 use MirrorPS\TalerBundle\Service\OtpDevicesService;
 use MirrorPS\TalerBundle\Service\OtpDevicesServiceInterface;
 use MirrorPS\TalerBundle\Service\OrderService;
@@ -67,6 +69,12 @@ final class TalerExtension extends Extension
         ]);
         $container->setDefinition(InstanceService::class, $instanceServiceDefinition);
         $container->setAlias(InstanceServiceInterface::class, InstanceService::class);
+
+        $inventoryServiceDefinition = new Definition(InventoryService::class, [
+            new Reference(Taler::class),
+        ]);
+        $container->setDefinition(InventoryService::class, $inventoryServiceDefinition);
+        $container->setAlias(InventoryServiceInterface::class, InventoryService::class);
 
         $configServiceDefinition = new Definition(ConfigService::class, [
             new Reference(Taler::class),

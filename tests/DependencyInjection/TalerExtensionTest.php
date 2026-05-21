@@ -14,6 +14,8 @@ use MirrorPS\TalerBundle\Service\DonauCharityService;
 use MirrorPS\TalerBundle\Service\DonauCharityServiceInterface;
 use MirrorPS\TalerBundle\Service\InstanceService;
 use MirrorPS\TalerBundle\Service\InstanceServiceInterface;
+use MirrorPS\TalerBundle\Service\InventoryService;
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
 use MirrorPS\TalerBundle\Service\OtpDevicesService;
 use MirrorPS\TalerBundle\Service\OtpDevicesServiceInterface;
 use MirrorPS\TalerBundle\Service\OrderService;
@@ -59,6 +61,8 @@ final class TalerExtensionTest extends TestCase
         self::assertTrue($container->hasAlias(BankAccountServiceInterface::class));
         self::assertTrue($container->hasDefinition(InstanceService::class));
         self::assertTrue($container->hasAlias(InstanceServiceInterface::class));
+        self::assertTrue($container->hasDefinition(InventoryService::class));
+        self::assertTrue($container->hasAlias(InventoryServiceInterface::class));
         self::assertTrue($container->hasDefinition(ConfigService::class));
         self::assertTrue($container->hasAlias(ConfigServiceInterface::class));
         self::assertTrue($container->hasDefinition(DonauCharityService::class));

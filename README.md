@@ -64,6 +64,7 @@ The bundle registers services that can be injected via autowiring.
 | `TokenFamiliesService` | `TokenFamiliesServiceInterface` | Token families (discount / subscription) |
 | `TwoFactorAuthService` | `TwoFactorAuthServiceInterface` | TAN challenge request / confirm |
 | `WebhooksService` | `WebhooksServiceInterface` | Merchant webhooks (HTTP callbacks) |
+| `InventoryService` | `InventoryServiceInterface` | Merchant inventory (categories, products, POS) |
 | `Taler`           | -                          | Low-level client wrapper   |
 
 ### OrderService
@@ -1105,6 +1106,245 @@ class MyController
     public function removeWebhook(WebhooksServiceInterface $webhooks, string $webhookId): void
     {
         $webhooks->deleteWebhook($webhookId);
+    }
+}
+```
+
+### InventoryService
+
+The `InventoryServiceInterface` wraps the GNU Taler merchant **Inventory** API (`private/inventory`). Use it to manage product categories, stock, POS configuration, and short-lived quantity locks.
+
+#### List categories
+
+```php
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
+
+class MyController
+{
+    public function listCategories(InventoryServiceInterface $inventory): void
+    {
+        $list = $inventory->getCategories();
+
+        foreach ($list->categories as $entry) {
+            echo sprintf(
+                "Category %d: %s (%d products)\n",
+                $entry->category_id,
+                $entry->name,
+                $entry->product_count
+            );
+        }
+    }
+}
+```
+
+#### Get a category with products
+
+```php
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
+
+class MyController
+{
+    public function showCategory(InventoryServiceInterface $inventory, int $categoryId): void
+    {
+        $category = $inventory->getCategory($categoryId);
+
+        echo $category->name . "\n";
+        foreach ($category->products as $product) {
+            echo $product->product_id . "\n";
+        }
+    }
+}
+```
+
+#### Create a category
+
+```php
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
+use Taler\Api\Inventory\Dto\CategoryCreateRequest;
+use Taler\Api\Inventory\Dto\CategoryCreatedResponse;
+
+class MyController
+{
+    public function createCategory(InventoryServiceInterface $inventory): void
+    {
+        $created = $inventory->createCategory(new CategoryCreateRequest(
+            name: 'Beverages',
+            name_i18n: ['de' => 'Getränke'],
+        ));
+
+        if ($created instanceof CategoryCreatedResponse) {
+            echo 'Created category ID: ' . $created->category_id . "\n";
+        }
+    }
+}
+```
+
+#### Update a category
+
+```php
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
+use Taler\Api\Inventory\Dto\CategoryCreateRequest;
+
+class MyController
+{
+    public function updateCategory(InventoryServiceInterface $inventory, int $categoryId): void
+    {
+        $inventory->updateCategory($categoryId, new CategoryCreateRequest(name: 'Drinks'));
+    }
+}
+```
+
+#### Delete a category
+
+```php
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
+
+class MyController
+{
+    public function deleteCategory(InventoryServiceInterface $inventory, int $categoryId): void
+    {
+        $inventory->deleteCategory($categoryId);
+    }
+}
+```
+
+#### List products
+
+```php
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
+use Taler\Api\Inventory\Dto\GetProductsRequest;
+use Taler\Api\Inventory\Dto\InventorySummaryResponse;
+
+class MyController
+{
+    public function listProducts(InventoryServiceInterface $inventory): void
+    {
+        $summary = $inventory->getProducts(new GetProductsRequest(limit: 20));
+        if (!$summary instanceof InventorySummaryResponse) {
+            return;
+        }
+
+        foreach ($summary->products as $entry) {
+            echo $entry->product_id . ' (serial ' . $entry->product_serial . ")\n";
+        }
+    }
+}
+```
+
+#### Get a product
+
+```php
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
+use Taler\Api\Inventory\Dto\ProductDetail;
+
+class MyController
+{
+    public function showProduct(InventoryServiceInterface $inventory, string $productId): void
+    {
+        $product = $inventory->getProduct($productId);
+        if (!$product instanceof ProductDetail) {
+            return;
+        }
+
+        echo $product->product_name . ' — ' . $product->price . "\n";
+    }
+}
+```
+
+#### Create a product
+
+```php
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
+use Taler\Api\Inventory\Dto\ProductAddDetail;
+
+class MyController
+{
+    public function createProduct(InventoryServiceInterface $inventory): void
+    {
+        $inventory->createProduct(new ProductAddDetail(
+            product_id: 'coffee-1kg',
+            description: 'Arabica beans 1kg',
+            unit: 'kg',
+            price: 'EUR:12.50',
+            total_stock: 100,
+            product_name: 'Coffee Beans',
+        ));
+    }
+}
+```
+
+#### Update a product
+
+```php
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
+use Taler\Api\Inventory\Dto\ProductPatchDetail;
+
+class MyController
+{
+    public function updateProduct(InventoryServiceInterface $inventory, string $productId): void
+    {
+        $inventory->updateProduct($productId, new ProductPatchDetail(
+            description: 'Arabica beans 1kg (fresh roast)',
+            unit: 'kg',
+            price: 'EUR:12.50',
+            total_stock: 150,
+        ));
+    }
+}
+```
+
+#### Delete a product
+
+```php
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
+
+class MyController
+{
+    public function deleteProduct(InventoryServiceInterface $inventory, string $productId): void
+    {
+        $inventory->deleteProduct($productId);
+    }
+}
+```
+
+#### POS configuration
+
+```php
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
+
+class MyController
+{
+    public function posConfig(InventoryServiceInterface $inventory): void
+    {
+        $pos = $inventory->getPos();
+
+        foreach ($pos->categories as $cat) {
+            echo $cat->id . ':' . $cat->name . "\n";
+        }
+
+        foreach ($pos->products as $p) {
+            echo $p->product_id . ' => ' . $p->price . "\n";
+        }
+    }
+}
+```
+
+#### Lock product quantity
+
+```php
+use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
+use Taler\Api\Dto\RelativeTime;
+use Taler\Api\Inventory\Dto\LockRequest;
+
+class MyController
+{
+    public function lockStock(InventoryServiceInterface $inventory): void
+    {
+        $inventory->lockProduct('coffee-1kg', new LockRequest(
+            lock_uuid: '123e4567-e89b-12d3-a456-426614174000',
+            duration: new RelativeTime(60_000_000),
+            quantity: 2,
+        ));
     }
 }
 ```
