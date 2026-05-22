@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MirrorPS\TalerBundle\Tests\DependencyInjection;
 
 use MirrorPS\TalerBundle\DependencyInjection\TalerExtension;
+use MirrorPS\TalerBundle\DependencyInjection\Compiler\TalerLoggerCompilerPass;
 use MirrorPS\TalerBundle\Factory\TalerClientFactory;
 use MirrorPS\TalerBundle\Service\BankAccountService;
 use MirrorPS\TalerBundle\Service\BankAccountServiceInterface;
@@ -35,6 +36,7 @@ use MirrorPS\TalerBundle\Service\WireTransfersServiceInterface;
 use MirrorPS\TalerBundle\Taler;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Reference;
 
 final class TalerExtensionTest extends TestCase
 {
@@ -97,5 +99,83 @@ final class TalerExtensionTest extends TestCase
 
         self::assertIsArray($factory);
         self::assertSame('create', $factory[1]);
+    }
+
+    public function testFactoryReceivesExplicitLoggerReference(): void
+    {
+        $container = new ContainerBuilder();
+        $extension = new TalerExtension();
+
+        $extension->load([
+            [
+                'base_url' => 'https://backend.demo.taler.net',
+                'logger' => 'app.custom_logger',
+            ],
+        ], $container);
+
+        $arguments = $container->getDefinition(TalerClientFactory::class)->getArguments();
+
+        self::assertCount(2, $arguments);
+        self::assertInstanceOf(Reference::class, $arguments[1]);
+        self::assertSame('app.custom_logger', (string) $arguments[1]);
+    }
+
+    public function testFactoryOmitsLoggerWhenDisabled(): void
+    {
+        $container = new ContainerBuilder();
+        $extension = new TalerExtension();
+
+        $extension->load([
+            [
+                'base_url' => 'https://backend.demo.taler.net',
+                'logger' => false,
+            ],
+        ], $container);
+
+        self::assertCount(1, $container->getDefinition(TalerClientFactory::class)->getArguments());
+    }
+
+    public function testCompilerPassAutoWiresMonologLogger(): void
+    {
+        $container = new ContainerBuilder();
+        $extension = new TalerExtension();
+
+        $extension->load([
+            [
+                'base_url' => 'https://backend.demo.taler.net',
+            ],
+        ], $container);
+
+        $container->register('monolog.logger.taler', \stdClass::class);
+
+        (new TalerLoggerCompilerPass())->process($container);
+
+        $arguments = $container->getDefinition(TalerClientFactory::class)->getArguments();
+
+        self::assertCount(2, $arguments);
+        self::assertInstanceOf(Reference::class, $arguments[1]);
+        self::assertSame('monolog.logger.taler', (string) $arguments[1]);
+    }
+
+    public function testPrependRegistersMonologChannel(): void
+    {
+        $container = new ContainerBuilder();
+        $container->registerExtension(new class() extends \Symfony\Component\DependencyInjection\Extension\AbstractExtension {
+            public function getAlias(): string
+            {
+                return 'monolog';
+            }
+
+            protected function configureExtension(): void
+            {
+            }
+        });
+
+        $extension = new TalerExtension();
+        $extension->prepend($container);
+
+        $configs = $container->getExtensionConfig('monolog');
+        self::assertNotEmpty($configs);
+        self::assertContains('taler', $configs[0]['channels'] ?? []);
     }
 }

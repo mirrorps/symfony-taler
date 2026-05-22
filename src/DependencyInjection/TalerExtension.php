@@ -35,16 +35,41 @@ use MirrorPS\TalerBundle\Taler;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Extension\Extension;
+use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Reference;
 
-final class TalerExtension extends Extension
+final class TalerExtension extends Extension implements PrependExtensionInterface
 {
+    private const MONOLOG_CHANNEL = 'taler';
+
+    public function prepend(ContainerBuilder $container): void
+    {
+        if (!$container->hasExtension('monolog')) {
+            return;
+        }
+
+        $container->prependExtensionConfig('monolog', [
+            'channels' => [self::MONOLOG_CHANNEL],
+        ]);
+    }
+
     public function load(array $configs, ContainerBuilder $container): void
     {
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
 
-        $factoryDefinition = new Definition(TalerClientFactory::class, [$config]);
+        $factoryArguments = [$config];
+        $explicitLoggerReference = $this->resolveExplicitLoggerReference($config);
+        if ($explicitLoggerReference !== null) {
+            $factoryArguments[] = $explicitLoggerReference;
+        }
+
+        $container->setParameter(
+            'mirrorps_taler.auto_wire_logger',
+            ($config['logger'] ?? null) === null,
+        );
+
+        $factoryDefinition = new Definition(TalerClientFactory::class, $factoryArguments);
         $container->setDefinition(TalerClientFactory::class, $factoryDefinition);
 
         $talerDefinition = new Definition(Taler::class);
@@ -129,5 +154,21 @@ final class TalerExtension extends Extension
         ]);
         $container->setDefinition(WireTransfersService::class, $wireTransfersServiceDefinition);
         $container->setAlias(WireTransfersServiceInterface::class, WireTransfersService::class);
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private function resolveExplicitLoggerReference(array $config): ?Reference
+    {
+        if (($config['logger'] ?? null) === false) {
+            return null;
+        }
+
+        if (isset($config['logger']) && \is_string($config['logger']) && $config['logger'] !== '') {
+            return new Reference($config['logger']);
+        }
+
+        return null;
     }
 }

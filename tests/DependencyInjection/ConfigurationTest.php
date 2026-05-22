@@ -32,6 +32,46 @@ final class ConfigurationTest extends TestCase
         self::assertNull($config['instance']);
         self::assertNull($config['token']);
         self::assertNull($config['scope']);
+        self::assertFalse($config['debug_logging_enabled']);
+        self::assertNull($config['logger']);
+    }
+
+    public function testLoggingConfig(): void
+    {
+        $config = $this->processor->processConfiguration($this->configuration, [
+            [
+                'base_url' => 'https://backend.demo.taler.net',
+                'debug_logging_enabled' => true,
+                'logger' => 'app.custom_logger',
+            ],
+        ]);
+
+        self::assertTrue($config['debug_logging_enabled']);
+        self::assertSame('app.custom_logger', $config['logger']);
+    }
+
+    public function testLoggerCanBeDisabled(): void
+    {
+        $config = $this->processor->processConfiguration($this->configuration, [
+            [
+                'base_url' => 'https://backend.demo.taler.net',
+                'logger' => false,
+            ],
+        ]);
+
+        self::assertFalse($config['logger']);
+    }
+
+    public function testInvalidLoggerConfig(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+
+        $this->processor->processConfiguration($this->configuration, [
+            [
+                'base_url' => 'https://backend.demo.taler.net',
+                'logger' => 123,
+            ],
+        ]);
     }
 
     public function testFullCredentialConfig(): void

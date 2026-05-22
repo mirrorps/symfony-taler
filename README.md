@@ -44,6 +44,46 @@ taler:
 | `password` | No       | Password for credential-based auth                       |
 | `instance` | No       | Merchant instance identifier                             |
 | `scope`    | No       | Token permission scope                                   |
+| `debug_logging_enabled` | No | Enable sanitized HTTP debug logs in taler-php (default: `false`) |
+| `logger`   | No       | PSR-3 logger service id, `null` to auto-wire Monolog `taler` channel, or `false` to disable |
+
+### Logging
+
+Logging is **optional**.
+
+To enable logging, install a PSR-3 implementation. Monolog via Symfony is recommended:
+
+```bash
+composer require symfony/monolog-bundle
+```
+
+The bundle prepends a dedicated `taler` Monolog channel and wires `monolog.logger.taler` into the client factory when `logger` is left unset (`null`). Alternatively, install any package that satisfies `psr/log-implementation` and set `logger` to your service id.
+
+```yaml
+# config/packages/taler.yaml
+taler:
+  base_url: 'https://backend.demo.taler.net/instances/sandbox'
+  token: 'Bearer secret-token:your-api-token'
+  debug_logging_enabled: '%kernel.debug%'
+```
+
+Use a custom logger service:
+
+```yaml
+taler:
+  base_url: 'https://example.test/instances/shop'
+  logger: 'app.custom_psr_logger'
+  debug_logging_enabled: true
+```
+
+Disable logging entirely (default when Monolog is not installed, or explicitly):
+
+```yaml
+taler:
+  logger: false
+```
+
+When `debug_logging_enabled` is `true`, ensure the logger handler accepts `DEBUG` level.
 
 ## Usage
 

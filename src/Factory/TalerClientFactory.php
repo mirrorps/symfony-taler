@@ -6,6 +6,7 @@ namespace MirrorPS\TalerBundle\Factory;
 
 use Http\Adapter\Guzzle7\Client as GuzzleAdapter;
 use MirrorPS\TalerBundle\Taler;
+use Psr\Log\LoggerInterface;
 use Taler\Factory\Factory;
 
 final class TalerClientFactory
@@ -13,13 +14,22 @@ final class TalerClientFactory
     /** @var array<string, mixed> */
     private array $config;
 
-    /** @param array<string, mixed> $config */
-    public function __construct(array $config)
-    {
+    public function __construct(
+        array $config,
+        private readonly ?LoggerInterface $logger = null,
+    ) {
         $this->config = $config;
     }
 
     public function create(): Taler
+    {
+        return new Taler(Factory::create($this->buildFactoryOptions()));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildFactoryOptions(): array
     {
         $httpClient = GuzzleAdapter::createWithConfig([
             'timeout' => 10.0,
@@ -33,8 +43,13 @@ final class TalerClientFactory
 
         $factoryConfig = [
             'base_url' => $this->config['base_url'],
-            'httpClient' => $httpClient,
+            'client' => $httpClient,
+            'debugLoggingEnabled' => (bool) ($this->config['debug_logging_enabled'] ?? false),
         ];
+
+        if ($this->logger !== null) {
+            $factoryConfig['logger'] = $this->logger;
+        }
 
         if ($this->config['token'] !== null) {
             $factoryConfig['token'] = $this->config['token'];
@@ -53,8 +68,6 @@ final class TalerClientFactory
             }
         }
 
-        $client = Factory::create($factoryConfig);
-
-        return new Taler($client);
+        return $factoryConfig;
     }
 }
