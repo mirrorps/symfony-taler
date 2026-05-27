@@ -6,6 +6,7 @@ namespace MirrorPS\TalerBundle\Tests\Factory;
 
 use MirrorPS\TalerBundle\Factory\TalerClientFactory;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Client\ClientInterface;
 use Psr\Log\NullLogger;
 
 final class TalerClientFactoryTest extends TestCase
@@ -24,21 +25,31 @@ final class TalerClientFactoryTest extends TestCase
         $config = $this->baseConfig();
         $config['debug_logging_enabled'] = true;
 
-        $factory = new TalerClientFactory($config, new NullLogger());
+        $factory = new TalerClientFactory($config, null, new NullLogger());
         $options = $this->extractFactoryOptions($factory);
 
         self::assertTrue($options['debugLoggingEnabled']);
         self::assertInstanceOf(NullLogger::class, $options['logger']);
-        self::assertArrayHasKey('client', $options);
+        self::assertArrayNotHasKey('client', $options);
         self::assertArrayNotHasKey('httpClient', $options);
     }
 
-    public function testBuildFactoryOptionsOmitsLoggerWhenNotProvided(): void
+    public function testBuildFactoryOptionsPassesInjectedHttpClient(): void
+    {
+        $httpClient = $this->createMock(ClientInterface::class);
+        $factory = new TalerClientFactory($this->baseConfig(), $httpClient);
+        $options = $this->extractFactoryOptions($factory);
+
+        self::assertSame($httpClient, $options['client']);
+    }
+
+    public function testBuildFactoryOptionsOmitsClientForSdkDiscovery(): void
     {
         $factory = new TalerClientFactory($this->baseConfig());
         $options = $this->extractFactoryOptions($factory);
 
         self::assertFalse($options['debugLoggingEnabled']);
+        self::assertArrayNotHasKey('client', $options);
         self::assertArrayNotHasKey('logger', $options);
     }
 

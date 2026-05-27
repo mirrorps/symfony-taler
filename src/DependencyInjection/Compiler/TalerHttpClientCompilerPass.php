@@ -10,13 +10,14 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
- * Wires monolog.logger.taler after all extensions are loaded (Monolog is not
- * visible during TalerExtension::load() via hasExtension()).
+ * Wires Symfony's psr18.http_client when available (requires framework.http_client
+ * and psr/http-client). taler-php PSR discovery alone is insufficient without
+ * additional PSR-17 factory packages (e.g. nyholm/psr7).
  */
-final class TalerLoggerCompilerPass implements CompilerPassInterface
+final class TalerHttpClientCompilerPass implements CompilerPassInterface
 {
-    private const MONOLOG_LOGGER_SERVICE = 'monolog.logger.taler';
-    private const AUTO_WIRE_PARAMETER = 'mirrorps_taler.auto_wire_logger';
+    private const PSR18_HTTP_CLIENT_SERVICE = 'psr18.http_client';
+    private const AUTO_WIRE_PARAMETER = 'mirrorps_taler.auto_wire_http_client';
 
     public function process(ContainerBuilder $container): void
     {
@@ -29,17 +30,16 @@ final class TalerLoggerCompilerPass implements CompilerPassInterface
         }
 
         $factoryDefinition = $container->getDefinition(TalerClientFactory::class);
-
         $arguments = $factoryDefinition->getArguments();
 
-        if (isset($arguments[2]) && $arguments[2] instanceof Reference) {
+        if (isset($arguments[1]) && $arguments[1] instanceof Reference) {
             return;
         }
 
-        if (!$container->hasDefinition(self::MONOLOG_LOGGER_SERVICE)) {
+        if (!$container->hasDefinition(self::PSR18_HTTP_CLIENT_SERVICE)) {
             return;
         }
 
-        $factoryDefinition->setArgument(2, new Reference(self::MONOLOG_LOGGER_SERVICE));
+        $factoryDefinition->setArgument(1, new Reference(self::PSR18_HTTP_CLIENT_SERVICE));
     }
 }

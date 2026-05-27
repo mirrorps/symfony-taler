@@ -58,18 +58,20 @@ final class TalerExtension extends Extension implements PrependExtensionInterfac
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
 
-        $factoryArguments = [$config];
-        $explicitLoggerReference = $this->resolveExplicitLoggerReference($config);
-        if ($explicitLoggerReference !== null) {
-            $factoryArguments[] = $explicitLoggerReference;
-        }
+        $factoryDefinition = new Definition(TalerClientFactory::class, [
+            $config,
+            $this->resolveHttpClientReference($config),
+            $this->resolveExplicitLoggerReference($config),
+        ]);
 
         $container->setParameter(
             'mirrorps_taler.auto_wire_logger',
             ($config['logger'] ?? null) === null,
         );
-
-        $factoryDefinition = new Definition(TalerClientFactory::class, $factoryArguments);
+        $container->setParameter(
+            'mirrorps_taler.auto_wire_http_client',
+            ($config['http_client'] ?? null) === null,
+        );
         $container->setDefinition(TalerClientFactory::class, $factoryDefinition);
 
         $talerDefinition = new Definition(Taler::class);
@@ -154,6 +156,18 @@ final class TalerExtension extends Extension implements PrependExtensionInterfac
         ]);
         $container->setDefinition(WireTransfersService::class, $wireTransfersServiceDefinition);
         $container->setAlias(WireTransfersServiceInterface::class, WireTransfersService::class);
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private function resolveHttpClientReference(array $config): ?Reference
+    {
+        if (isset($config['http_client']) && \is_string($config['http_client']) && $config['http_client'] !== '') {
+            return new Reference($config['http_client']);
+        }
+
+        return null;
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MirrorPS\TalerBundle\Tests\DependencyInjection;
 
 use MirrorPS\TalerBundle\DependencyInjection\TalerExtension;
+use MirrorPS\TalerBundle\DependencyInjection\Compiler\TalerHttpClientCompilerPass;
 use MirrorPS\TalerBundle\DependencyInjection\Compiler\TalerLoggerCompilerPass;
 use MirrorPS\TalerBundle\Factory\TalerClientFactory;
 use MirrorPS\TalerBundle\Service\BankAccountService;
@@ -115,9 +116,10 @@ final class TalerExtensionTest extends TestCase
 
         $arguments = $container->getDefinition(TalerClientFactory::class)->getArguments();
 
-        self::assertCount(2, $arguments);
-        self::assertInstanceOf(Reference::class, $arguments[1]);
-        self::assertSame('app.custom_logger', (string) $arguments[1]);
+        self::assertCount(3, $arguments);
+        self::assertNull($arguments[1]);
+        self::assertInstanceOf(Reference::class, $arguments[2]);
+        self::assertSame('app.custom_logger', (string) $arguments[2]);
     }
 
     public function testFactoryOmitsLoggerWhenDisabled(): void
@@ -132,7 +134,49 @@ final class TalerExtensionTest extends TestCase
             ],
         ], $container);
 
-        self::assertCount(1, $container->getDefinition(TalerClientFactory::class)->getArguments());
+        $arguments = $container->getDefinition(TalerClientFactory::class)->getArguments();
+
+        self::assertCount(3, $arguments);
+        self::assertNull($arguments[2]);
+    }
+
+    public function testFactoryReceivesExplicitHttpClientReference(): void
+    {
+        $container = new ContainerBuilder();
+        $extension = new TalerExtension();
+
+        $extension->load([
+            [
+                'base_url' => 'https://backend.demo.taler.net',
+                'http_client' => 'app.psr18_client',
+            ],
+        ], $container);
+
+        $arguments = $container->getDefinition(TalerClientFactory::class)->getArguments();
+
+        self::assertInstanceOf(Reference::class, $arguments[1]);
+        self::assertSame('app.psr18_client', (string) $arguments[1]);
+    }
+
+    public function testCompilerPassAutoWiresPsr18HttpClient(): void
+    {
+        $container = new ContainerBuilder();
+        $extension = new TalerExtension();
+
+        $extension->load([
+            [
+                'base_url' => 'https://backend.demo.taler.net',
+            ],
+        ], $container);
+
+        $container->register('psr18.http_client', \stdClass::class);
+
+        (new TalerHttpClientCompilerPass())->process($container);
+
+        $arguments = $container->getDefinition(TalerClientFactory::class)->getArguments();
+
+        self::assertInstanceOf(Reference::class, $arguments[1]);
+        self::assertSame('psr18.http_client', (string) $arguments[1]);
     }
 
     public function testCompilerPassAutoWiresMonologLogger(): void
@@ -152,9 +196,10 @@ final class TalerExtensionTest extends TestCase
 
         $arguments = $container->getDefinition(TalerClientFactory::class)->getArguments();
 
-        self::assertCount(2, $arguments);
-        self::assertInstanceOf(Reference::class, $arguments[1]);
-        self::assertSame('monolog.logger.taler', (string) $arguments[1]);
+        self::assertCount(3, $arguments);
+        self::assertNull($arguments[1]);
+        self::assertInstanceOf(Reference::class, $arguments[2]);
+        self::assertSame('monolog.logger.taler', (string) $arguments[2]);
     }
 
     public function testPrependRegistersMonologChannel(): void

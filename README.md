@@ -15,6 +15,8 @@ Symfony bundle for [GNU Taler](https://taler.net/) payment integration via [`mir
 composer require mirrorps/symfony-taler
 ```
 
+Then complete **[HTTP client setup](#http-client-setup-required-for-api-calls)**. Without it, API calls will not work.
+
 ## Configuration
 
 Add your Taler merchant backend credentials in `config/packages/taler.yaml`:
@@ -44,12 +46,60 @@ taler:
 | `password` | No       | Password for credential-based auth                       |
 | `instance` | No       | Merchant instance identifier                             |
 | `scope`    | No       | Token permission scope                                   |
-| `debug_logging_enabled` | No | Enable sanitized HTTP debug logs in taler-php (default: `false`) |
+| `http_client` | No    | PSR-18 client service id; leave unset to use Symfony `psr18.http_client` (see below) |
 | `logger`   | No       | PSR-3 logger service id, `null` to auto-wire Monolog `taler` channel, or `false` to disable |
+| `debug_logging_enabled` | No | Enable sanitized HTTP debug logs in taler-php (default: `false`) |
 
-### Logging
+### HTTP client setup
 
-Logging is **optional**.
+The bundle talks to the Taler backend over HTTP via [taler-php](https://packagist.org/packages/mirrorps/taler-php). It does **not** include an HTTP library - you must provide one.
+
+**Step 1 - Install packages**
+
+```bash
+composer require symfony/http-client nyholm/psr7
+```
+
+| Package | Why you need it |
+|---------|-----------------|
+| `symfony/http-client` | Sends HTTP requests (Symfony’s client) |
+| `nyholm/psr7` | Builds request/response messages (required by Symfony’s PSR-18 adapter) |
+
+**Step 2 - Enable the Framework HTTP client**
+
+Add or update `config/packages/framework.yaml`:
+
+```yaml
+framework:
+    http_client: true
+```
+
+**Done.** You do **not** need to set `http_client` in `config/packages/taler.yaml`. The bundle connects to Symfony’s `psr18.http_client` automatically (the same client your app can use elsewhere).
+
+#### Custom PSR-18 client (optional)
+
+Only if you already have your own `Psr\Http\Client\ClientInterface` service:
+
+```yaml
+# config/packages/taler.yaml
+taler:
+  base_url: 'https://backend.demo.taler.net/instances/sandbox'
+  http_client: 'app.my_psr18_client'   # your service id
+```
+
+#### Without Symfony HttpClient (Guzzle, etc.)
+
+Install a PSR-18 client **and** PSR-17 factories, then either rely on taler-php discovery or set `http_client` explicitly:
+
+```bash
+composer require guzzlehttp/guzzle php-http/guzzle7-adapter
+```
+
+### Logging (optional)
+
+Logging is **optional**. The bundle does not require a logging package in your application. [taler-php](https://packagist.org/packages/mirrorps/taler-php) already depends on `psr/log` (interfaces only); without a PSR-3 **implementation** the SDK uses `NullLogger` and produces no log output.
+
+Log formatting and HTTP trace sanitization live in taler-php only — this bundle forwards a logger service when you configure one.
 
 To enable logging, install a PSR-3 implementation. Monolog via Symfony is recommended:
 
@@ -83,7 +133,7 @@ taler:
   logger: false
 ```
 
-When `debug_logging_enabled` is `true`, ensure the logger handler accepts `DEBUG` level.
+When `debug_logging_enabled` is `true`, ensure the logger handler accepts `DEBUG` level. Errors and protocol warnings from taler-php are logged at `error` / `warning` regardless of this flag, but only when a real logger is wired.
 
 ## Usage
 

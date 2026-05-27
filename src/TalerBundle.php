@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MirrorPS\TalerBundle;
 
+use MirrorPS\TalerBundle\DependencyInjection\Compiler\TalerHttpClientCompilerPass;
 use MirrorPS\TalerBundle\DependencyInjection\Compiler\TalerLoggerCompilerPass;
 use MirrorPS\TalerBundle\DependencyInjection\TalerExtension;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
@@ -22,6 +23,11 @@ final class TalerBundle extends AbstractBundle
     {
         parent::build($container);
 
+        $container->addCompilerPass(
+            new TalerHttpClientCompilerPass(),
+            PassConfig::TYPE_BEFORE_OPTIMIZATION,
+            -20,
+        );
         $container->addCompilerPass(
             new TalerLoggerCompilerPass(),
             PassConfig::TYPE_BEFORE_OPTIMIZATION,

@@ -34,6 +34,7 @@ final class ConfigurationTest extends TestCase
         self::assertNull($config['scope']);
         self::assertFalse($config['debug_logging_enabled']);
         self::assertNull($config['logger']);
+        self::assertNull($config['http_client']);
     }
 
     public function testLoggingConfig(): void
@@ -60,6 +61,30 @@ final class ConfigurationTest extends TestCase
         ]);
 
         self::assertFalse($config['logger']);
+    }
+
+    public function testHttpClientConfig(): void
+    {
+        $config = $this->processor->processConfiguration($this->configuration, [
+            [
+                'base_url' => 'https://backend.demo.taler.net',
+                'http_client' => 'app.psr18_client',
+            ],
+        ]);
+
+        self::assertSame('app.psr18_client', $config['http_client']);
+    }
+
+    public function testInvalidHttpClientConfig(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+
+        $this->processor->processConfiguration($this->configuration, [
+            [
+                'base_url' => 'https://backend.demo.taler.net',
+                'http_client' => false,
+            ],
+        ]);
     }
 
     public function testInvalidLoggerConfig(): void
