@@ -283,7 +283,7 @@ class MyController
 
         $response = $orderService->createOrder(new PostOrderRequest(order: $order));
 
-        echo sprintf("Created order: %s (token: %s)\n", $response->order_id, $response->token ?? 'none');
+        echo sprintf("Created order: %s\n", $response->order_id);
     }
 }
 ```
