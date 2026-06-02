@@ -1,6 +1,5 @@
 # TalerBundle
 
-> **Note:** This package is under active development and is subject to frequent code changes.
 
 Symfony bundle for [GNU Taler](https://taler.net/) payment integration via [`mirrorps/taler-php`](https://packagist.org/packages/mirrorps/taler-php).
 
@@ -59,11 +58,6 @@ The bundle talks to the Taler backend over HTTP via [taler-php](https://packagis
 ```bash
 composer require symfony/http-client nyholm/psr7
 ```
-
-| Package | Why you need it |
-|---------|-----------------|
-| `symfony/http-client` | Sends HTTP requests (Symfony’s client) |
-| `nyholm/psr7` | Builds request/response messages (required by Symfony’s PSR-18 adapter) |
 
 **Step 2 - Enable the Framework HTTP client**
 
@@ -359,30 +353,17 @@ use Taler\Api\BankAccounts\Dto\BasicAuthFacadeCredentials;
 use Taler\Api\BankAccounts\Dto\NoFacadeCredentials;
 ```
 
-#### List Bank Accounts
-
 ```php
 class MyController
 {
-    public function listBankAccounts(BankAccountServiceInterface $bankAccountService): void
+    public function manageBankAccounts(BankAccountServiceInterface $bankAccountService, string $hWire): void
     {
         $accounts = $bankAccountService->getAccounts();
-
         foreach ($accounts->accounts as $account) {
             echo sprintf("%s: %s\n", $account->h_wire, $account->payto_uri);
         }
-    }
-}
-```
 
-#### Create a Bank Account
-
-```php
-class MyController
-{
-    public function createBankAccount(BankAccountServiceInterface $bankAccountService): void
-    {
-        $response = $bankAccountService->createAccount(new AccountAddDetails(
+        $created = $bankAccountService->createAccount(new AccountAddDetails(
             payto_uri: 'payto://iban/DE75512108001245126199?receiver-name=Sandbox',
             credit_facade_url: 'https://bank.example.test/facade',
             credit_facade_credentials: new BasicAuthFacadeCredentials(
@@ -390,52 +371,16 @@ class MyController
                 password: 'facade-password',
             ),
         ));
+        echo sprintf("Created bank account: %s\n", $created->h_wire);
 
-        echo sprintf("Created bank account: %s\n", $response->h_wire);
-    }
-}
-```
-
-#### Get a Bank Account
-
-```php
-class MyController
-{
-    public function showBankAccount(BankAccountServiceInterface $bankAccountService, string $hWire): void
-    {
         $account = $bankAccountService->getAccount($hWire);
-
         echo sprintf("%s: %s\n", $account->h_wire, $account->payto_uri);
-    }
-}
-```
 
-#### Update a Bank Account
-
-```php
-class MyController
-{
-    public function updateBankAccount(BankAccountServiceInterface $bankAccountService, string $hWire): void
-    {
         $bankAccountService->updateAccount($hWire, new AccountPatchDetails(
             credit_facade_credentials: new NoFacadeCredentials(),
         ));
 
-        echo sprintf("Updated bank account: %s\n", $hWire);
-    }
-}
-```
-
-#### Delete a Bank Account
-
-```php
-class MyController
-{
-    public function deleteBankAccount(BankAccountServiceInterface $bankAccountService, string $hWire): void
-    {
         $bankAccountService->deleteAccount($hWire);
-
-        echo sprintf("Deleted bank account: %s\n", $hWire);
     }
 }
 ```
@@ -444,18 +389,15 @@ class MyController
 
 The `WireTransfersServiceInterface` wraps the Taler merchant **Wire Transfers** API (`private/transfers`). Use it to list incoming wire transfers and delete transfer records by serial ID.
 
-#### List wire transfers
-
 ```php
 use MirrorPS\TalerBundle\Service\WireTransfersServiceInterface;
 use Taler\Api\WireTransfers\Dto\GetTransfersRequest;
 
 class MyController
 {
-    public function listTransfers(WireTransfersServiceInterface $wireTransfers): void
+    public function manageWireTransfers(WireTransfersServiceInterface $wireTransfers, string $tid): void
     {
         $list = $wireTransfers->getTransfers();
-
         foreach ($list->transfers as $transfer) {
             echo sprintf(
                 "[%d] %s — %s (verified: %s)\n",
@@ -465,40 +407,13 @@ class MyController
                 $transfer->verified === true ? 'yes' : 'no',
             );
         }
-    }
-}
-```
 
-#### List wire transfers with filters
-
-```php
-use MirrorPS\TalerBundle\Service\WireTransfersServiceInterface;
-use Taler\Api\WireTransfers\Dto\GetTransfersRequest;
-
-class MyController
-{
-    public function listFilteredTransfers(WireTransfersServiceInterface $wireTransfers): void
-    {
-        $request = new GetTransfersRequest(
+        $filtered = $wireTransfers->getTransfers(new GetTransfersRequest(
             payto_uri: 'payto://iban/DE89370400440532013000?receiver-name=Example%20Merchant',
             after: '1700000000',
             limit: 20,
-        );
+        ));
 
-        $list = $wireTransfers->getTransfers($request);
-    }
-}
-```
-
-#### Delete a wire transfer
-
-```php
-use MirrorPS\TalerBundle\Service\WireTransfersServiceInterface;
-
-class MyController
-{
-    public function removeTransfer(WireTransfersServiceInterface $wireTransfers, string $tid): void
-    {
         $wireTransfers->deleteTransfer($tid);
     }
 }
@@ -521,48 +436,19 @@ use Taler\Api\Instance\Dto\InstanceReconfigurationMessage;
 use Taler\Api\Instance\Dto\LoginTokenRequest;
 ```
 
-#### List All Instances
-
 ```php
 class MyController
 {
-    public function listInstances(InstanceServiceInterface $instanceService): void
+    public function manageInstances(InstanceServiceInterface $instanceService, string $instanceId): void
     {
         $instances = $instanceService->getInstances();
-
         foreach ($instances->instances as $instance) {
             echo sprintf("Instance %s: %s\n", $instance->id, $instance->name);
         }
-    }
-}
-```
 
-> NOTE: 
-> If your backend returns `404`, you are likely using a per-instance base URL such as `https://backend.demo.taler.net/instances/sandbox`.
-> In that setup, use the single-instance private endpoint instead:
-> `GET https://backend.demo.taler.net/instances/sandbox/private`
-
-#### Get a Single Instance
-
-```php
-class MyController
-{
-    public function showInstance(InstanceServiceInterface $instanceService, string $instanceId): void
-    {
         $instance = $instanceService->getInstance($instanceId);
-
         echo sprintf("Name: %s\n", $instance->name);
-    }
-}
-```
 
-#### Create an Instance
-
-```php
-class MyController
-{
-    public function createInstance(InstanceServiceInterface $instanceService): void
-    {
         $instanceService->createInstance(new InstanceConfigurationMessage(
             id: 'coffee-shop',
             name: 'Coffee Shop',
@@ -573,18 +459,8 @@ class MyController
             default_wire_transfer_delay: new RelativeTime(d_us: 0),
             default_pay_delay: new RelativeTime(d_us: 0),
         ));
-    }
-}
-```
 
-#### Update an Instance
-
-```php
-class MyController
-{
-    public function updateInstance(InstanceServiceInterface $instanceService): void
-    {
-        $instanceService->updateInstance('coffee-shop', new InstanceReconfigurationMessage(
+        $instanceService->updateInstance($instanceId, new InstanceReconfigurationMessage(
             name: 'Coffee Shop Berlin',
             address: new \Taler\Api\Dto\Location(country: 'DE', town: 'Berlin'),
             jurisdiction: new \Taler\Api\Dto\Location(country: 'DE'),
@@ -592,120 +468,63 @@ class MyController
             default_wire_transfer_delay: new RelativeTime(d_us: 0),
             default_pay_delay: new RelativeTime(d_us: 0),
         ));
+
+        $challenge = $instanceService->deleteInstance($instanceId);
+        $challenge = $instanceService->deleteInstance($instanceId, purge: true);
     }
 }
 ```
 
-#### Update Instance Authentication
+> NOTE: 
+> If your backend returns `404`, you are likely using a per-instance base URL such as `https://backend.demo.taler.net/instances/sandbox`.
+> In that setup, use the single-instance private endpoint instead:
+> `GET https://backend.demo.taler.net/instances/sandbox/private`
+
+#### Authentication, tokens, and statistics
 
 ```php
 class MyController
 {
-    public function updateAuth(InstanceServiceInterface $instanceService): void
+    public function manageInstanceExtras(InstanceServiceInterface $instanceService, string $instanceId): void
     {
-        $challenge = $instanceService->updateAuth(
-            'coffee-shop',
+        $instanceService->updateAuth(
+            $instanceId,
             new InstanceAuthConfigToken(password: 'new-secret'),
         );
-    }
-}
-```
 
-#### Forgot Password
-
-```php
-class MyController
-{
-    public function forgotPassword(InstanceServiceInterface $instanceService): void
-    {
-        $challenge = $instanceService->forgotPassword(
-            'coffee-shop',
+        $instanceService->forgotPassword(
+            $instanceId,
             new InstanceAuthConfigToken(password: 'reset-secret'),
         );
-    }
-}
-```
 
-#### Retrieve an Access Token
-
-```php
-class MyController
-{
-    public function getToken(InstanceServiceInterface $instanceService): void
-    {
-        $token = $instanceService->getAccessToken('coffee-shop', new LoginTokenRequest(
+        $token = $instanceService->getAccessToken($instanceId, new LoginTokenRequest(
             scope: 'readonly',
             duration: new RelativeTime(d_us: 3600000000),
             description: 'Backoffice session',
         ));
-    }
-}
-```
 
-#### List and Revoke Access Tokens
-
-```php
-class MyController
-{
-    public function manageTokens(InstanceServiceInterface $instanceService): void
-    {
         $tokens = $instanceService->getAccessTokens(
-            'coffee-shop',
+            $instanceId,
             new GetAccessTokensRequest(limit: 20),
         );
+        $instanceService->deleteAccessToken($instanceId);
+        $instanceService->deleteAccessTokenBySerial($instanceId, 42);
 
-        $instanceService->deleteAccessToken('coffee-shop');
-        $instanceService->deleteAccessTokenBySerial('coffee-shop', 42);
-    }
-}
-```
-
-#### Check KYC Status
-
-```php
-class MyController
-{
-    public function checkKyc(InstanceServiceInterface $instanceService): void
-    {
         $kycStatus = $instanceService->getKycStatus(
-            'coffee-shop',
+            $instanceId,
             new GetKycStatusRequest(timeout_ms: 5000),
         );
-    }
-}
-```
 
-#### Merchant Statistics
-
-```php
-class MyController
-{
-    public function viewStats(InstanceServiceInterface $instanceService): void
-    {
-        $amountStats = $instanceService->getMerchantStatisticsAmount(
-            'coffee-shop',
+        $instanceService->getMerchantStatisticsAmount(
+            $instanceId,
             'revenue',
             new GetMerchantStatisticsAmountRequest(by: 'ANY'),
         );
-
-        $counterStats = $instanceService->getMerchantStatisticsCounter(
-            'coffee-shop',
+        $instanceService->getMerchantStatisticsCounter(
+            $instanceId,
             'orders',
             new GetMerchantStatisticsCounterRequest(by: 'BUCKET'),
         );
-    }
-}
-```
-
-#### Delete or Purge an Instance
-
-```php
-class MyController
-{
-    public function deleteInstance(InstanceServiceInterface $instanceService): void
-    {
-        $challenge = $instanceService->deleteInstance('coffee-shop');
-        $challenge = $instanceService->deleteInstance('coffee-shop', purge: true);
     }
 }
 ```
@@ -743,10 +562,9 @@ use Taler\Api\DonauCharity\Dto\PostDonauRequest;
 
 class MyController
 {
-    public function listDonauLinks(DonauCharityServiceInterface $donauService): void
+    public function manageDonauCharity(DonauCharityServiceInterface $donauService): void
     {
         $response = $donauService->getInstances();
-
         foreach ($response->donau_instances as $instance) {
             echo sprintf(
                 "#%d %s (%s)\n",
@@ -755,22 +573,15 @@ class MyController
                 $instance->donau_url
             );
         }
-    }
 
-    public function addDonauLink(DonauCharityServiceInterface $donauService): void
-    {
         $challenge = $donauService->createDonauCharity(new PostDonauRequest(
             donau_url: 'https://donau.example.test',
             charity_id: 42,
         ));
-
         if ($challenge !== null) {
             echo "2FA challenge required.\n";
         }
-    }
 
-    public function removeDonauLink(DonauCharityServiceInterface $donauService): void
-    {
         $donauService->deleteDonauCharityBySerial(42);
     }
 }
@@ -780,105 +591,37 @@ class MyController
 
 The `OtpDevicesServiceInterface` wraps the Taler merchant OTP Devices API. Use it to register POS terminals or other devices that prove confirmation codes (TOTP) to the backend.
 
-#### List OTP devices
-
-```php
-use MirrorPS\TalerBundle\Service\OtpDevicesServiceInterface;
-
-class MyController
-{
-    public function listOtpDevices(OtpDevicesServiceInterface $otpDevices): void
-    {
-        $summary = $otpDevices->getOtpDevices();
-
-        foreach ($summary->otp_devices as $entry) {
-            echo sprintf("%s — %s\n", $entry->otp_device_id, $entry->device_description);
-        }
-    }
-}
-```
-
-#### Create an OTP device
-
-```php
-use MirrorPS\TalerBundle\Service\OtpDevicesServiceInterface;
-use Taler\Api\OtpDevices\Dto\OtpDeviceAddDetails;
-
-class MyController
-{
-    public function registerDevice(OtpDevicesServiceInterface $otpDevices): void
-    {
-        $details = new OtpDeviceAddDetails(
-            otp_device_id: 'pos-device-1',
-            otp_device_description: 'Checkout counter',
-            otp_key: 'JBSWY3DPEHPK3PXP',
-            otp_algorithm: 1,
-        );
-
-        $otpDevices->createOtpDevice($details);
-    }
-}
-```
-
-`otp_algorithm` may be integers `0`, `1`, `2` or strings `NONE`, `TOTP_WITHOUT_PRICE`, `TOTP_WITH_PRICE` (see GNU Taler merchant API documentation).
-
-#### Get one device
-
 ```php
 use MirrorPS\TalerBundle\Service\OtpDevicesServiceInterface;
 use Taler\Api\OtpDevices\Dto\GetOtpDeviceRequest;
-
-class MyController
-{
-    public function showDevice(OtpDevicesServiceInterface $otpDevices, string $deviceId): void
-    {
-        $device = $otpDevices->getOtpDevice($deviceId);
-
-        echo sprintf("Description: %s\n", $device->device_description);
-    }
-
-    public function showDeviceWithQuery(OtpDevicesServiceInterface $otpDevices, string $deviceId): void
-    {
-        $request = new GetOtpDeviceRequest(
-            faketime: 1700000000
-        );
-
-        $device = $otpDevices->getOtpDevice($deviceId, $request);
-    }
-}
-```
-
-#### Update an OTP device
-
-```php
-use MirrorPS\TalerBundle\Service\OtpDevicesServiceInterface;
+use Taler\Api\OtpDevices\Dto\OtpDeviceAddDetails;
 use Taler\Api\OtpDevices\Dto\OtpDevicePatchDetails;
 
 class MyController
 {
-    public function relabelDevice(OtpDevicesServiceInterface $otpDevices, string $deviceId): void
+    public function manageOtpDevices(OtpDevicesServiceInterface $otpDevices, string $deviceId): void
     {
-        $current = $otpDevices->getOtpDevice($deviceId);
+        $summary = $otpDevices->getOtpDevices();
+        foreach ($summary->otp_devices as $entry) {
+            echo sprintf("%s — %s\n", $entry->otp_device_id, $entry->device_description);
+        }
+
+        // otp_algorithm: 0|1|2 or NONE|TOTP_WITHOUT_PRICE|TOTP_WITH_PRICE (GNU Taler merchant API)
+        $otpDevices->createOtpDevice(new OtpDeviceAddDetails(
+            otp_device_id: 'pos-device-1',
+            otp_device_description: 'Checkout counter',
+            otp_key: 'JBSWY3DPEHPK3PXP',
+            otp_algorithm: 1,
+        ));
+
+        $device = $otpDevices->getOtpDevice($deviceId);
+        $otpDevices->getOtpDevice($deviceId, new GetOtpDeviceRequest(faketime: 1700000000));
 
         $otpDevices->updateOtpDevice($deviceId, new OtpDevicePatchDetails(
             otp_device_description: 'New checkout label',
-            otp_algorithm: $current->otp_algorithm,
+            otp_algorithm: $device->otp_algorithm, // required when changing otp_key or similar fields
         ));
-    }
-}
-```
 
-If you change `otp_key` or other fields, include `otp_algorithm` the same way unless you set an explicit new value.
-
-#### Delete an OTP device
-
-```php
-use MirrorPS\TalerBundle\Service\OtpDevicesServiceInterface;
-
-class MyController
-{
-    public function removeDevice(OtpDevicesServiceInterface $otpDevices, string $deviceId): void
-    {
         $otpDevices->deleteOtpDevice($deviceId);
     }
 }
@@ -888,53 +631,26 @@ class MyController
 
 The `TemplatesServiceInterface` wraps the Taler merchant Templates API. Templates define default contract fields (summary, amount, pay duration, and so on) for orders created from that template.
 
-#### List templates
-
-```php
-use MirrorPS\TalerBundle\Service\TemplatesServiceInterface;
-
-class MyController
-{
-    public function listTemplates(TemplatesServiceInterface $templates): void
-    {
-        $summary = $templates->getTemplates();
-
-        foreach ($summary->templates as $entry) {
-            echo sprintf("%s — %s\n", $entry->template_id, $entry->template_description);
-        }
-    }
-}
-```
-
-#### Get one template
-
-```php
-use MirrorPS\TalerBundle\Service\TemplatesServiceInterface;
-
-class MyController
-{
-    public function showTemplate(TemplatesServiceInterface $templates, string $templateId): void
-    {
-        $template = $templates->getTemplate($templateId);
-
-        echo sprintf("Description: %s\n", $template->template_description);
-    }
-}
-```
-
-#### Create a template
-
 ```php
 use MirrorPS\TalerBundle\Service\TemplatesServiceInterface;
 use Taler\Api\Dto\RelativeTime;
 use Taler\Api\Templates\Dto\TemplateAddDetails;
 use Taler\Api\Templates\Dto\TemplateContractDetails;
+use Taler\Api\Templates\Dto\TemplatePatchDetails;
 
 class MyController
 {
-    public function addTemplate(TemplatesServiceInterface $templates): void
+    public function manageTemplates(TemplatesServiceInterface $templates, string $templateId): void
     {
-        $details = new TemplateAddDetails(
+        $summary = $templates->getTemplates();
+        foreach ($summary->templates as $entry) {
+            echo sprintf("%s — %s\n", $entry->template_id, $entry->template_description);
+        }
+
+        $template = $templates->getTemplate($templateId);
+        echo sprintf("Description: %s\n", $template->template_description);
+
+        $templates->createTemplate(new TemplateAddDetails(
             template_id: 'lunch-menu',
             template_description: 'Lunch special',
             template_contract: new TemplateContractDetails(
@@ -946,25 +662,8 @@ class MyController
             ),
             otp_id: null,
             editable_defaults: null,
-        );
+        ));
 
-        $templates->createTemplate($details);
-    }
-}
-```
-
-#### Update a template
-
-```php
-use MirrorPS\TalerBundle\Service\TemplatesServiceInterface;
-use Taler\Api\Dto\RelativeTime;
-use Taler\Api\Templates\Dto\TemplateContractDetails;
-use Taler\Api\Templates\Dto\TemplatePatchDetails;
-
-class MyController
-{
-    public function patchTemplate(TemplatesServiceInterface $templates, string $templateId): void
-    {
         $templates->updateTemplate($templateId, new TemplatePatchDetails(
             template_description: 'Lunch special (updated)',
             template_contract: new TemplateContractDetails(
@@ -975,19 +674,7 @@ class MyController
                 amount: 'EUR:9.00',
             ),
         ));
-    }
-}
-```
 
-#### Delete a template
-
-```php
-use MirrorPS\TalerBundle\Service\TemplatesServiceInterface;
-
-class MyController
-{
-    public function removeTemplate(TemplatesServiceInterface $templates, string $templateId): void
-    {
         $templates->deleteTemplate($templateId);
     }
 }
@@ -997,101 +684,44 @@ class MyController
 
 The `TokenFamiliesServiceInterface` wraps the Taler merchant Token Families API. 
 
-#### List token families
-
-```php
-use MirrorPS\TalerBundle\Service\TokenFamiliesServiceInterface;
-
-class MyController
-{
-    public function listTokenFamilies(TokenFamiliesServiceInterface $tokenFamilies): void
-    {
-        $list = $tokenFamilies->getTokenFamilies();
-
-        foreach ($list->token_families as $entry) {
-            echo sprintf("%s — %s (%s)\n", $entry->slug, $entry->name, $entry->kind);
-        }
-    }
-}
-```
-
-#### Get one token family
-
-```php
-use MirrorPS\TalerBundle\Service\TokenFamiliesServiceInterface;
-
-class MyController
-{
-    public function showTokenFamily(TokenFamiliesServiceInterface $tokenFamilies, string $slug): void
-    {
-        $details = $tokenFamilies->getTokenFamily($slug);
-
-        echo sprintf("Issued: %d, used: %d\n", $details->issued, $details->used);
-    }
-}
-```
-
-#### Create a token family
-
 ```php
 use MirrorPS\TalerBundle\Service\TokenFamiliesServiceInterface;
 use Taler\Api\Dto\RelativeTime;
 use Taler\Api\Dto\Timestamp;
 use Taler\Api\TokenFamilies\Dto\TokenFamilyCreateRequest;
-
-class MyController
-{
-    public function addTokenFamily(TokenFamiliesServiceInterface $tokenFamilies): void
-    {
-        $request = new TokenFamilyCreateRequest(
-            slug: 'summer-discount',
-            name: 'Summer sale',
-            description: 'Seasonal discount tokens',
-            valid_before: new Timestamp(t_s: 'never'),
-            // duration must be >= validity_granularity + start_offset; granularity must be a fixed step (1m, 1h, 1d, …).
-            duration: new RelativeTime(d_us: 3_600_000_000),
-            validity_granularity: new RelativeTime(d_us: 3_600_000_000),
-            start_offset: new RelativeTime(d_us: 0),
-            kind: 'discount',
-        );
-
-        $tokenFamilies->createTokenFamily($request);
-    }
-}
-```
-
-`kind` must be `discount` or `subscription`. Optional fields on `TokenFamilyCreateRequest` include `description_i18n`, `extra_data`, and `valid_after`.
-
-#### Update a token family
-
-```php
-use MirrorPS\TalerBundle\Service\TokenFamiliesServiceInterface;
-use Taler\Api\Dto\Timestamp;
 use Taler\Api\TokenFamilies\Dto\TokenFamilyUpdateRequest;
 
 class MyController
 {
-    public function patchTokenFamily(TokenFamiliesServiceInterface $tokenFamilies, string $slug): void
+    public function manageTokenFamilies(TokenFamiliesServiceInterface $tokenFamilies, string $slug): void
     {
+        $list = $tokenFamilies->getTokenFamilies();
+        foreach ($list->token_families as $entry) {
+            echo sprintf("%s — %s (%s)\n", $entry->slug, $entry->name, $entry->kind);
+        }
+
+        $details = $tokenFamilies->getTokenFamily($slug);
+        echo sprintf("Issued: %d, used: %d\n", $details->issued, $details->used);
+
+        // kind: discount|subscription; duration >= validity_granularity + start_offset
+        $tokenFamilies->createTokenFamily(new TokenFamilyCreateRequest(
+            slug: 'summer-discount',
+            name: 'Summer sale',
+            description: 'Seasonal discount tokens',
+            valid_before: new Timestamp(t_s: 'never'),
+            duration: new RelativeTime(d_us: 3_600_000_000),
+            validity_granularity: new RelativeTime(d_us: 3_600_000_000),
+            start_offset: new RelativeTime(d_us: 0),
+            kind: 'discount',
+        ));
+
         $tokenFamilies->updateTokenFamily($slug, new TokenFamilyUpdateRequest(
             name: 'Summer sale (updated)',
             description: 'Updated description',
             valid_after: new Timestamp(t_s: 0),
             valid_before: new Timestamp(t_s: 'never'),
         ));
-    }
-}
-```
 
-#### Delete a token family
-
-```php
-use MirrorPS\TalerBundle\Service\TokenFamiliesServiceInterface;
-
-class MyController
-{
-    public function removeTokenFamily(TokenFamiliesServiceInterface $tokenFamilies, string $slug): void
-    {
         $tokenFamilies->deleteTokenFamily($slug);
     }
 }
@@ -1101,100 +731,43 @@ class MyController
 
 The `WebhooksServiceInterface` wraps the Taler merchant **Webhooks** API (`private/webhooks`). Webhooks let the backend invoke your HTTP endpoint when events occur (for example `order.paid`).
 
-#### List webhooks
-
-```php
-use MirrorPS\TalerBundle\Service\WebhooksServiceInterface;
-use Taler\Api\Webhooks\Dto\WebhookSummaryResponse;
-
-class MyController
-{
-    public function listWebhooks(WebhooksServiceInterface $webhooks): void
-    {
-        $summary = $webhooks->getWebhooks();
-        if (!$summary instanceof WebhookSummaryResponse) {
-            return;
-        }
-
-        foreach ($summary->webhooks as $entry) {
-            echo sprintf("%s — %s\n", $entry->webhook_id, $entry->event_type);
-        }
-    }
-}
-```
-
-#### Get one webhook
-
-```php
-use MirrorPS\TalerBundle\Service\WebhooksServiceInterface;
-use Taler\Api\Webhooks\Dto\WebhookDetails;
-
-class MyController
-{
-    public function showWebhook(WebhooksServiceInterface $webhooks, string $webhookId): void
-    {
-        $details = $webhooks->getWebhook($webhookId);
-        if (!$details instanceof WebhookDetails) {
-            return;
-        }
-
-        echo sprintf("%s %s\n", $details->http_method, $details->url);
-    }
-}
-```
-
-#### Create a webhook
-
 ```php
 use MirrorPS\TalerBundle\Service\WebhooksServiceInterface;
 use Taler\Api\Dto\Url;
 use Taler\Api\Webhooks\Dto\WebhookAddDetails;
+use Taler\Api\Webhooks\Dto\WebhookDetails;
+use Taler\Api\Webhooks\Dto\WebhookPatchDetails;
+use Taler\Api\Webhooks\Dto\WebhookSummaryResponse;
 
 class MyController
 {
-    public function addWebhook(WebhooksServiceInterface $webhooks): void
+    public function manageWebhooks(WebhooksServiceInterface $webhooks, string $webhookId): void
     {
-        $details = new WebhookAddDetails(
+        $summary = $webhooks->getWebhooks();
+        if ($summary instanceof WebhookSummaryResponse) {
+            foreach ($summary->webhooks as $entry) {
+                echo sprintf("%s — %s\n", $entry->webhook_id, $entry->event_type);
+            }
+        }
+
+        $details = $webhooks->getWebhook($webhookId);
+        if ($details instanceof WebhookDetails) {
+            echo sprintf("%s %s\n", $details->http_method, $details->url);
+        }
+
+        $webhooks->createWebhook(new WebhookAddDetails(
             webhook_id: 'orders-paid',
             event_type: 'order.paid',
             url: Url::fromString('https://example.com/taler-webhook'),
             http_method: 'POST',
-        );
+        ));
 
-        $webhooks->createWebhook($details);
-    }
-}
-```
-
-#### Update a webhook
-
-```php
-use MirrorPS\TalerBundle\Service\WebhooksServiceInterface;
-use Taler\Api\Dto\Url;
-use Taler\Api\Webhooks\Dto\WebhookPatchDetails;
-
-class MyController
-{
-    public function patchWebhook(WebhooksServiceInterface $webhooks, string $webhookId): void
-    {
         $webhooks->updateWebhook($webhookId, new WebhookPatchDetails(
             event_type: 'order.paid',
             url: Url::fromString('https://example.com/taler-webhook-v2'),
             http_method: 'POST',
         ));
-    }
-}
-```
 
-#### Delete a webhook
-
-```php
-use MirrorPS\TalerBundle\Service\WebhooksServiceInterface;
-
-class MyController
-{
-    public function removeWebhook(WebhooksServiceInterface $webhooks, string $webhookId): void
-    {
         $webhooks->deleteWebhook($webhookId);
     }
 }
@@ -1204,17 +777,26 @@ class MyController
 
 The `InventoryServiceInterface` wraps the GNU Taler merchant **Inventory** API (`private/inventory`). Use it to manage product categories, stock, POS configuration, and short-lived quantity locks.
 
-#### List categories
+#### Categories and products
 
 ```php
 use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
+use Taler\Api\Inventory\Dto\CategoryCreateRequest;
+use Taler\Api\Inventory\Dto\CategoryCreatedResponse;
+use Taler\Api\Inventory\Dto\GetProductsRequest;
+use Taler\Api\Inventory\Dto\InventorySummaryResponse;
+use Taler\Api\Inventory\Dto\ProductAddDetail;
+use Taler\Api\Inventory\Dto\ProductDetail;
+use Taler\Api\Inventory\Dto\ProductPatchDetail;
 
 class MyController
 {
-    public function listCategories(InventoryServiceInterface $inventory): void
-    {
+    public function manageInventory(
+        InventoryServiceInterface $inventory,
+        int $categoryId,
+        string $productId,
+    ): void {
         $list = $inventory->getCategories();
-
         foreach ($list->categories as $entry) {
             echo sprintf(
                 "Category %d: %s (%d products)\n",
@@ -1223,134 +805,36 @@ class MyController
                 $entry->product_count
             );
         }
-    }
-}
-```
 
-#### Get a category with products
-
-```php
-use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
-
-class MyController
-{
-    public function showCategory(InventoryServiceInterface $inventory, int $categoryId): void
-    {
         $category = $inventory->getCategory($categoryId);
-
         echo $category->name . "\n";
         foreach ($category->products as $product) {
             echo $product->product_id . "\n";
         }
-    }
-}
-```
 
-#### Create a category
-
-```php
-use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
-use Taler\Api\Inventory\Dto\CategoryCreateRequest;
-use Taler\Api\Inventory\Dto\CategoryCreatedResponse;
-
-class MyController
-{
-    public function createCategory(InventoryServiceInterface $inventory): void
-    {
         $created = $inventory->createCategory(new CategoryCreateRequest(
             name: 'Beverages',
             name_i18n: ['de' => 'Getränke'],
         ));
-
         if ($created instanceof CategoryCreatedResponse) {
             echo 'Created category ID: ' . $created->category_id . "\n";
         }
-    }
-}
-```
 
-#### Update a category
-
-```php
-use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
-use Taler\Api\Inventory\Dto\CategoryCreateRequest;
-
-class MyController
-{
-    public function updateCategory(InventoryServiceInterface $inventory, int $categoryId): void
-    {
         $inventory->updateCategory($categoryId, new CategoryCreateRequest(name: 'Drinks'));
-    }
-}
-```
-
-#### Delete a category
-
-```php
-use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
-
-class MyController
-{
-    public function deleteCategory(InventoryServiceInterface $inventory, int $categoryId): void
-    {
         $inventory->deleteCategory($categoryId);
-    }
-}
-```
 
-#### List products
-
-```php
-use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
-use Taler\Api\Inventory\Dto\GetProductsRequest;
-use Taler\Api\Inventory\Dto\InventorySummaryResponse;
-
-class MyController
-{
-    public function listProducts(InventoryServiceInterface $inventory): void
-    {
         $summary = $inventory->getProducts(new GetProductsRequest(limit: 20));
-        if (!$summary instanceof InventorySummaryResponse) {
-            return;
+        if ($summary instanceof InventorySummaryResponse) {
+            foreach ($summary->products as $entry) {
+                echo $entry->product_id . ' (serial ' . $entry->product_serial . ")\n";
+            }
         }
 
-        foreach ($summary->products as $entry) {
-            echo $entry->product_id . ' (serial ' . $entry->product_serial . ")\n";
-        }
-    }
-}
-```
-
-#### Get a product
-
-```php
-use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
-use Taler\Api\Inventory\Dto\ProductDetail;
-
-class MyController
-{
-    public function showProduct(InventoryServiceInterface $inventory, string $productId): void
-    {
         $product = $inventory->getProduct($productId);
-        if (!$product instanceof ProductDetail) {
-            return;
+        if ($product instanceof ProductDetail) {
+            echo $product->product_name . ' — ' . $product->price . "\n";
         }
 
-        echo $product->product_name . ' — ' . $product->price . "\n";
-    }
-}
-```
-
-#### Create a product
-
-```php
-use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
-use Taler\Api\Inventory\Dto\ProductAddDetail;
-
-class MyController
-{
-    public function createProduct(InventoryServiceInterface $inventory): void
-    {
         $inventory->createProduct(new ProductAddDetail(
             product_id: 'coffee-1kg',
             description: 'Arabica beans 1kg',
@@ -1359,39 +843,14 @@ class MyController
             total_stock: 100,
             product_name: 'Coffee Beans',
         ));
-    }
-}
-```
 
-#### Update a product
-
-```php
-use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
-use Taler\Api\Inventory\Dto\ProductPatchDetail;
-
-class MyController
-{
-    public function updateProduct(InventoryServiceInterface $inventory, string $productId): void
-    {
         $inventory->updateProduct($productId, new ProductPatchDetail(
             description: 'Arabica beans 1kg (fresh roast)',
             unit: 'kg',
             price: 'EUR:12.50',
             total_stock: 150,
         ));
-    }
-}
-```
 
-#### Delete a product
-
-```php
-use MirrorPS\TalerBundle\Service\InventoryServiceInterface;
-
-class MyController
-{
-    public function deleteProduct(InventoryServiceInterface $inventory, string $productId): void
-    {
         $inventory->deleteProduct($productId);
     }
 }
@@ -1443,40 +902,25 @@ class MyController
 
 The `TwoFactorAuthServiceInterface` wraps the GNU Taler merchant **Two-Factor Authentication** API (TAN challenges). Use it after another API returns a `ChallengeResponse`.
 
-#### Request a TAN for a challenge
-
-```php
-use MirrorPS\TalerBundle\Service\TwoFactorAuthServiceInterface;
-
-class MyController
-{
-    public function requestTan(TwoFactorAuthServiceInterface $twoFa, string $instanceId, string $challengeId): void
-    {
-        $status = $twoFa->requestChallenge($instanceId, $challengeId);
-
-        echo sprintf(
-            "Solve before: %s, earliest retransmit: %s\n",
-            (string) $status->solve_expiration->t_s,
-            (string) $status->earliest_retransmission->t_s
-        );
-    }
-}
-```
-
-#### Confirm a challenge with the TAN
-
 ```php
 use MirrorPS\TalerBundle\Service\TwoFactorAuthServiceInterface;
 use Taler\Api\TwoFactorAuth\Dto\MerchantChallengeSolveRequest;
 
 class MyController
 {
-    public function submitTan(
+    public function manageTwoFactorChallenge(
         TwoFactorAuthServiceInterface $twoFa,
         string $instanceId,
         string $challengeId,
         string $tan,
     ): void {
+        $status = $twoFa->requestChallenge($instanceId, $challengeId);
+        echo sprintf(
+            "Solve before: %s, earliest retransmit: %s\n",
+            (string) $status->solve_expiration->t_s,
+            (string) $status->earliest_retransmission->t_s
+        );
+
         $twoFa->confirmChallenge(
             $instanceId,
             $challengeId,
